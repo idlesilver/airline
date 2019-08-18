@@ -53,7 +53,7 @@
         void (*resetFunc)(void) = 0;
 //*************setup,loop主程序*************//
 void setup(){
-    Serial.begin(115200);       //测试用
+    Serial.begin(9600);       //测试用
     //*************链接手柄*************//
         delay(1000);                //手柄配对延时
         ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
