@@ -159,18 +159,17 @@ void update_value_from_pad()
                 Serial.println(speed_y);
             }
         //云台仰角目标改变
-            step_alpha = ps2x.Analog(PSS_RY)/255.0*angle_alpha_change_unit*4-angle_alpha_change_unit*2; //等价于有float的map(ps2x.Analog(PSS_RX),0,255,-angle_theta_change_unit*2,angle_theta_change_unit*2)
-            // if (ps2x.Analog(PSS_RY) >= stick_sensitive_val_up || ps2x.Analog(PSS_RY) <= stick_sensitive_val_down){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
-            if (abs(ps2x.Analog(PSS_RY) -127) >= stick_sensitive_val){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
-                if (angle_alpha <= angle_alpha_min-0.01) angle_alpha = angle_alpha_min;
-                else if (angle_alpha >= angle_alpha_max+0.01) angle_alpha = angle_alpha_max;
-                else angle_alpha -= step_alpha;                 //这里反向，因为pad stick往下数字更大
+            step_alpha = -(ps2x.Analog(PSS_RY)/255.0*angle_alpha_change_unit*4-angle_alpha_change_unit*2); //取了一个负号，因为摇杆方向不对
+            if (abs(ps2x.Analog(PSS_RY) -127) >= stick_sensitive_val){     
+                if (step_alpha >0 && angle_alpha >= angle_alpha_max) angle_alpha = angle_alpha_max;
+                else if (step_alpha <0 && angle_alpha <= angle_alpha_min) angle_alpha = angle_alpha_min;
+                else angle_alpha += step_alpha;                 //这里反向，因为pad stick往下数字更大
                 Serial.print("angle_alpha is: ");
                 Serial.println(angle_alpha);
             }
         //云台水平目标角度
-            step_theta = ps2x.Analog(PSS_RX)/255.0*angle_theta_change_unit*4-angle_theta_change_unit*2; //用了255.0防止第一个除法两个整数相除变成0
-            if (abs(ps2x.Analog(PSS_RX)-127) >= stick_sensitive_val) {    //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
+            step_theta = ps2x.Analog(PSS_RX)/255.0*angle_theta_change_unit*4-angle_theta_change_unit*2; //用了255.0防止第一个除法两个整数相除变成0；等价于有float的map(ps2x.Analog(PSS_RX),0,255,-angle_theta_change_unit*2,angle_theta_change_unit*2)
+            if (abs(ps2x.Analog(PSS_RX)-127) >= stick_sensitive_val) {
                 angle_theta += step_theta;
                 Serial.print("angle_theta is: ");
                 Serial.println(angle_theta);
