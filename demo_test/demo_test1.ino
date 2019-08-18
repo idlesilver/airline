@@ -87,34 +87,36 @@ void update_value_from_pad()
       //上下键控制云台仰角 FIXME:真的需要这个功能？？？？？
         if (ps2x.Button(PSB_PAD_UP))
         {
-            Serial.print("Up held this hard: ");
-            Serial.println(ps2x.Analog(PSAB_PAD_UP), DEC);
             if (angle_alpha >= angle_alpha_max)
                 angle_alpha = angle_alpha_max;
             else
                 angle_alpha += angle_alpha_change_unit;
+            Serial.print("UP is pressed, ");
+            Serial.print("angle_alpha is ");
+            Serial.println(angle_alpha);
         }
         else if (ps2x.Button(PSB_PAD_DOWN))
         {
-            Serial.print("DOWN held this hard: ");
-            Serial.println(ps2x.Analog(PSAB_PAD_DOWN), DEC);
             if (angle_alpha <= angle_alpha_min)
                 angle_alpha = angle_alpha_min;
             else
                 angle_alpha -= angle_alpha_change_unit;
+            Serial.print("DOWN is pressed, ");
+            Serial.print("angle_alpha is ");
+            Serial.println(angle_alpha);
         }
       //左右键控制是否顺逆时针旋转
         if (ps2x.Button(PSB_PAD_RIGHT))
         {   //TODO:吃得消的话，可以把按键的压力值变成旋转的速度
-            Serial.print("Right held this hard: ");
-            Serial.println(ps2x.Analog(PSAB_PAD_RIGHT), DEC);
             rotating = 1;
+            Serial.print("rotating is ");
+            Serial.println(rotating);
         }
         else if (ps2x.Button(PSB_PAD_LEFT))
         {
-            Serial.print("LEFT held this hard: ");
-            Serial.println(ps2x.Analog(PSAB_PAD_LEFT), DEC);
             rotating = -1;
+            Serial.print("rotating is ");
+            Serial.println(rotating);
         }
         else
         {
@@ -123,21 +125,21 @@ void update_value_from_pad()
     //按下circle键，改变front，即小车正方向
         if (ps2x.ButtonPressed(PSB_CIRCLE))
         {   //TODO:这里可能需要一个消抖。。。
-            Serial.println("Circle just pressed, front changed");
             if (millis()-last_front_change >= front_change_delay){
                 front = (front + 1) % 4;
                 last_front_change = millis();
+            Serial.println("Circle just pressed, front changed to: ");
+            Serial.println(front);
             }
         }
     //摇杆的值作为移动速度
         //测试用的串口显示：按L1或L2，输出摇杆值，用于检测
             if (ps2x.Button(PSB_L2) || ps2x.Button(PSB_R2))
             {  
-                Serial.print("Stick Values:");
                 Serial.print(ps2x.Analog(PSS_LY), DEC); //Left stick, Y axis. Other options: LX, RY, RX
                 Serial.print(",");
                 Serial.print(ps2x.Analog(PSS_LX), DEC);
-                Serial.print(",");
+                Serial.print(" | ");
                 Serial.print(ps2x.Analog(PSS_RY), DEC);
                 Serial.print(",");
                 Serial.println(ps2x.Analog(PSS_RX), DEC);
@@ -145,15 +147,23 @@ void update_value_from_pad()
         //平移速度
             speed_x = map(ps2x.Analog(PSS_LX),0,255,-255,255);      //FIXME: 摇杆的方向和数值关系，测一次之后可能改顺序
             speed_y = map(ps2x.Analog(PSS_LY),0,255,-255,255);      //这里可以用map，因为结果给PWM，只要整数
+            Serial.print("speed_x is: ");
+            Serial.println(speed_x);
+            Serial.print("speed_y is: ");
+            Serial.println(speed_y);
         //云台仰角目标改变
             step_alpha = ps2x.Analog(PSS_RY)/255.0*angle_alpha_change_unit*4-angle_alpha_change_unit*2; //等价于有float的map(ps2x.Analog(PSS_RX),0,255,-angle_theta_change_unit*2,angle_theta_change_unit*2)
             if (ps2x.Analog(PSS_RY) >= stick_sensitive_val_up){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
                 angle_alpha += step_alpha;
+                Serial.print("angle_alpha is: ");
+                Serial.println(angle_alpha);
             }
         //云台水平目标角度
             step_theta = ps2x.Analog(PSS_RX)/255.0*angle_theta_change_unit*4-angle_theta_change_unit*2; //用了255.0防止第一个除法两个整数相除变成0
             if (ps2x.Analog(PSS_RX) >= stick_sensitive_val_up){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
                 angle_theta += step_theta;
+                Serial.print("angle_theta is: ");
+                Serial.println(angle_theta);
             }
 
 
