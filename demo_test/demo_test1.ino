@@ -57,8 +57,8 @@ void setup(){
     //*************链接手柄*************//
         delay(1000);                //手柄配对延时
         ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
-        if (ps2x_error == 0)    {Serial.print("Found Controller, configured successful ");}
-        else    {Serial.println("there is an ps2x_error, but doesn't metter!");}
+        if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
+        else Serial.println("there is an ps2x_error, but doesn't metter!");
     }
 void loop(){
     if (ps2x_error == 1){resetFunc();}
@@ -175,8 +175,16 @@ void update_value_from_pad()
                 Serial.print("angle_theta is: ");
                 Serial.println(angle_theta);
             }
-
-
+    //射击模块
+        if (ps2x.Button(PSB_L1)){
+            shoot_once = true;
+            Serial.print("shoot once: ");
+            Serial.println(shoot_once);
+        }else if (ps2x.Button(PSB_R1)){
+            shoot_dadada = true;
+            Serial.print("shoot_dadada: ");
+            Serial.println(shoot_dadada);
+        }
 
     //*************暂时没用到的*************//
         // if (ps2x.NewButtonState()){will be TRUE if any button changes state (on to off, or off to on)
