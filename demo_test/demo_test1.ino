@@ -32,11 +32,11 @@
     volatile int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
     volatile int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
-    float angle_theta_change_unit = 1;          //FIXME:云台水平变化的角度，记得改(可能把angle相关的改成float)
+    float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改(可能把angle相关的改成float)
     float step_theta = 0;                       //用作储存中间变量,不用改
     int   speedup_ratio = 5;                    //云台齿轮组加速比
 
-    float angle_alpha_change_unit = 1;          //FIXME:云台仰角每次检测变化的角度，记得改(可能把angle相关的改成float)
+    float angle_alpha_change_unit = 1.0;        //FIXME:云台仰角每次检测变化的角度，记得改(可能把angle相关的改成float)
     float step_alpha = 0;                       //用作储存中间变量,不用改
     float angle_alpha_max = 90;                 //FIXME: 舵机的俯仰角限制范围，记得改
     float angle_alpha_min = 45;
@@ -147,20 +147,25 @@ void update_value_from_pad()
         //平移速度
             speed_x = map(ps2x.Analog(PSS_LX),0,255,-255,255);      //FIXME: 摇杆的方向和数值关系，测一次之后可能改顺序
             speed_y = map(ps2x.Analog(PSS_LY),0,255,-255,255);      //这里可以用map，因为结果给PWM，只要整数
-            Serial.print("speed_x is: ");
-            Serial.println(speed_x);
-            Serial.print("speed_y is: ");
-            Serial.println(speed_y);
+            if (ps2x.Button(PSB_TRIANGLE)){
+                Serial.print("speed_x is: ");
+                Serial.println(speed_x);
+                Serial.print("speed_y is: ");
+                Serial.println(speed_y);
+            }
         //云台仰角目标改变
             step_alpha = ps2x.Analog(PSS_RY)/255.0*angle_alpha_change_unit*4-angle_alpha_change_unit*2; //等价于有float的map(ps2x.Analog(PSS_RX),0,255,-angle_theta_change_unit*2,angle_theta_change_unit*2)
-            if (ps2x.Analog(PSS_RY) >= stick_sensitive_val_up){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
-                angle_alpha += step_alpha;
+            // if (ps2x.Analog(PSS_RY) >= stick_sensitive_val_up || ps2x.Analog(PSS_RY) <= stick_sensitive_val_down){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
+            if (abs(ps2x.Analog(PSS_RY) -127.0) >= 20.0){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
+                if (angle_alpha <= angle_alpha_min) angle_alpha = angle_alpha_min;
+                else if (angle_alpha >= angle_alpha_max) angle_alpha = angle_alpha_max;
+                else angle_alpha += step_alpha;
                 Serial.print("angle_alpha is: ");
                 Serial.println(angle_alpha);
             }
         //云台水平目标角度
             step_theta = ps2x.Analog(PSS_RX)/255.0*angle_theta_change_unit*4-angle_theta_change_unit*2; //用了255.0防止第一个除法两个整数相除变成0
-            if (ps2x.Analog(PSS_RX) >= stick_sensitive_val_up){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
+            if (abs(ps2x.Analog(PSS_RX)-127.0) >= 20.0) {    //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
                 angle_theta += step_theta;
                 Serial.print("angle_theta is: ");
                 Serial.println(angle_theta);
@@ -169,17 +174,16 @@ void update_value_from_pad()
 
 
     //*************暂时没用到的*************//
-        if (ps2x.NewButtonState())
-        { //will be TRUE if any button changes state (on to off, or off to on)
-            //   if(ps2x.Button(PSB_L3))
-            //     Serial.println("L3 pressed");
-            //   if(ps2x.Button(PSB_R3))
-            //     Serial.println("R3 pressed");
-            //   if(ps2x.Button(PSB_L2))
-            //     Serial.println("L2 pressed");
-            //   if(ps2x.Button(PSB_R2))
-            //     Serial.println("R2 pressed");
-        }
+        // if (ps2x.NewButtonState()){will be TRUE if any button changes state (on to off, or off to on)
+        //       if(ps2x.Button(PSB_L3))
+        //         Serial.println("L3 pressed");
+        //       if(ps2x.Button(PSB_R3))
+        //         Serial.println("R3 pressed");
+        //       if(ps2x.Button(PSB_L2))
+        //         Serial.println("L2 pressed");
+        //       if(ps2x.Button(PSB_R2))
+        //         Serial.println("R2 pressed");
+        // }
         // if(ps2x.Button(PSB_TRIANGLE))
         //     Serial.println("Triangle pressed");
         // if(ps2x.NewButtonState(PSB_CROSS))               //will be TRUE if button was JUST pressed OR released
