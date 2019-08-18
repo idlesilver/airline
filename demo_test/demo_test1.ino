@@ -23,28 +23,37 @@
     #define rumble true
 
 //*************设置全局变量*************//
-    volatile int speed_x = 0;                   //水平移动速度
+  //底座部分  
+    volatile int speed_x = 0;                   
     volatile int speed_y = 0;
-    volatile float angle_theta = 0;             //云台水平角度，PID控制，TODO:初始值由6轴传感器测定
+    volatile int wheel_pwm_1 = 0;
+    volatile int wheel_pwm_2 = 0;
+    volatile int wheel_pwm_3 = 0;
+    volatile int wheel_pwm_4 = 0;
+    int rotating_speed = 255;
+    long  last_front_change = 0;                //cache
+    int  front_change_delay = 300;//ms         //切换方向的消抖延时
+
+  //云台部分
+    volatile float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
     volatile float angle_alpha = 70;            //FIXME:舵机启动时的水平位置，记得改
-    volatile bool shoot_once = 0;               //TODO:没注释的都还没设置update
+    volatile bool shoot_once = 0;               
     volatile bool shoot_dadada = 0;
     volatile int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
     volatile int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
-    float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改(可能把angle相关的改成float)
+    float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
     float step_theta = 0;                       //用作储存中间变量,不用改
     int   speedup_ratio = 5;                    //云台齿轮组加速比
 
-    float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改(可能把angle相关的改成float)
-    float step_alpha = 0;                       //用作储存中间变量,不用改
+    volatile float step_alpha = 0;              //用作储存中间变量,不用改
+    float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改
     float angle_alpha_max = 90;                 //FIXME: 舵机的俯仰角限制范围，记得改
     float angle_alpha_min = 45;
 
-    long  last_front_change = 0;                //cache
-    long  front_change_delay = 300;//ms         //切换方向的消抖延时
-
-    int stick_sensitive_val = 20;           //摇杆在中位会有数值波动，用sensitive_val来防抖 
+  //手柄部分
+    int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
+    
 
 //*************新建实例，初始化实例*************//
     PS2X ps2x; // create PS2 Controller Class
@@ -63,11 +72,10 @@ void setup(){
 void loop(){
     if (ps2x_error == 1){resetFunc();}
     update_value_from_pad();
-    
+
     }
 
-void update_value_from_pad()
-{
+void update_value_from_pad(){
     /*忽略按键:
      *  start
      *  select
@@ -184,24 +192,99 @@ void update_value_from_pad()
             Serial.print("shoot_dadada: ");
             Serial.println(shoot_dadada);
         }
-
-    //*************暂时没用到的*************//
-        // if (ps2x.NewButtonState()){will be TRUE if any button changes state (on to off, or off to on)
-        //       if(ps2x.Button(PSB_L3))
-        //         Serial.println("L3 pressed");
-        //       if(ps2x.Button(PSB_R3))
-        //         Serial.println("R3 pressed");
-        //       if(ps2x.Button(PSB_L2))
-        //         Serial.println("L2 pressed");
-        //       if(ps2x.Button(PSB_R2))
-        //         Serial.println("R2 pressed");
-        // }
-        // if(ps2x.Button(PSB_TRIANGLE))
-        //     Serial.println("Triangle pressed");
-        // if(ps2x.NewButtonState(PSB_CROSS))               //will be TRUE if button was JUST pressed OR released
-        //   Serial.println("X just changed");
-        // if(ps2x.ButtonReleased(PSB_SQUARE))              //will be TRUE if button was JUST released
-        //   Serial.println("Square just released");
-
     delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
+}
+void speed_combine(){
+    int wheel_direction_1 = 1;
+    int wheel_direction_2 = 1;
+    int wheel_direction_3 = 1;
+    int wheel_direction_4 = 1;
+    if(rotating == 1){
+        wheel_direction_1 = 1;
+        wheel_direction_2 = 1;
+        wheel_direction_3 = 1;
+        wheel_direction_4 = 1;
+        wheel_pwm_1 = rotating_speed * wheel_direction_1 ;
+        wheel_pwm_2 = rotating_speed * wheel_direction_2 ;
+        wheel_pwm_3 = rotating_speed * wheel_direction_3 ;
+        wheel_pwm_4 = rotating_speed * wheel_direction_4 ;
+    }else if(rotating == -1){
+        wheel_direction_1 = -1;
+        wheel_direction_2 = -1;
+        wheel_direction_3 = -1;
+        wheel_direction_4 = -1;
+        wheel_pwm_1 = rotating_speed * wheel_direction_1 ;
+        wheel_pwm_2 = rotating_speed * wheel_direction_2 ;
+        wheel_pwm_3 = rotating_speed * wheel_direction_3 ;
+        wheel_pwm_4 = rotating_speed * wheel_direction_4 ;
+    }else{
+        switch (front){
+            case 0:
+                wheel_direction_1 =  1;
+                wheel_direction_2 = -1;
+                wheel_direction_3 = -1;
+                wheel_direction_4 =  1;
+                break;
+            case 1:
+                wheel_direction_1 =  1;
+                wheel_direction_2 =  1;
+                wheel_direction_3 = -1;
+                wheel_direction_4 = -1;
+                break;
+            case 2:
+                wheel_direction_1 = -1;
+                wheel_direction_2 =  1;
+                wheel_direction_3 =  1;
+                wheel_direction_4 = -1;
+                break;
+            case 3:
+                wheel_direction_1 = -1;
+                wheel_direction_2 = -1;
+                wheel_direction_3 =  1;
+                wheel_direction_4 =  1;
+                break;
+            default:
+                break;
+        }
+        wheel_pwm_1 = speed_x * wheel_direction_1 ;
+        wheel_pwm_2 = speed_x * wheel_direction_2 ;
+        wheel_pwm_3 = speed_x * wheel_direction_3 ;
+        wheel_pwm_4 = speed_x * wheel_direction_4 ;
+        switch (front){
+            case 0:
+                wheel_direction_1 = -1;// 1;
+                wheel_direction_2 = -1;//-1;
+                wheel_direction_3 =  1;//-1;
+                wheel_direction_4 =  1;// 1;
+                break;
+            case 1:
+                wheel_direction_1 =  1;// 1;
+                wheel_direction_2 = -1;// 1;
+                wheel_direction_3 = -1;//-1;
+                wheel_direction_4 =  1;//-1;
+                break;
+            case 2:
+                wheel_direction_1 =  1;//-1;
+                wheel_direction_2 =  1;// 1;
+                wheel_direction_3 = -1;// 1;
+                wheel_direction_4 = -1;//-1;
+                break;
+            case 3:
+                wheel_direction_1 = -1;//-1;
+                wheel_direction_2 =  1;//-1;
+                wheel_direction_3 =  1;// 1;
+                wheel_direction_4 = -1;// 1;
+                break;
+            default:
+                break;
+        }
+        wheel_pwm_1 += speed_y * wheel_direction_1 ;
+        wheel_pwm_2 += speed_y * wheel_direction_2 ;
+        wheel_pwm_3 += speed_y * wheel_direction_3 ;
+        wheel_pwm_4 += speed_y * wheel_direction_4 ;
+        abs(wheel_pwm_1) > 255 ? wheel_pwm_1 = 255 : wheel_pwm_1 = wheel_pwm_1;
+        abs(wheel_pwm_2) > 255 ? wheel_pwm_2 = 255 : wheel_pwm_2 = wheel_pwm_2;
+        abs(wheel_pwm_3) > 255 ? wheel_pwm_3 = 255 : wheel_pwm_3 = wheel_pwm_3;
+        abs(wheel_pwm_4) > 255 ? wheel_pwm_4 = 255 : wheel_pwm_4 = wheel_pwm_4;
+    }
 }

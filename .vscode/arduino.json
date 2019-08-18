@@ -1,6 +1,5 @@
 {
     "board": "arduino:avr:mega",
     "port": "COM4",
-    "configuration": "cpu=atmega2560",
-    "sketch": "wheel.ino"
+    "configuration": "cpu=atmega2560"
 }
