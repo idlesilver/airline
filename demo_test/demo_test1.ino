@@ -36,7 +36,7 @@
     float step_theta = 0;                       //用作储存中间变量,不用改
     int   speedup_ratio = 5;                    //云台齿轮组加速比
 
-    float angle_alpha_change_unit = 1.0;        //FIXME:云台仰角每次检测变化的角度，记得改(可能把angle相关的改成float)
+    float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改(可能把angle相关的改成float)
     float step_alpha = 0;                       //用作储存中间变量,不用改
     float angle_alpha_max = 90;                 //FIXME: 舵机的俯仰角限制范围，记得改
     float angle_alpha_min = 45;
@@ -44,8 +44,7 @@
     long  last_front_change = 0;                //cache
     long  front_change_delay = 300;//ms         //切换方向的消抖延时
 
-    int stick_sensitive_val_up = 150;           //摇杆在中位会有数值波动，用sensitive_val来防抖
-    int stick_sensitive_val_down = 100; 
+    int stick_sensitive_val = 20;           //摇杆在中位会有数值波动，用sensitive_val来防抖 
 
 //*************新建实例，初始化实例*************//
     PS2X ps2x; // create PS2 Controller Class
@@ -145,8 +144,14 @@ void update_value_from_pad()
                 Serial.println(ps2x.Analog(PSS_RX), DEC);
             }
         //平移速度
-            speed_x = map(ps2x.Analog(PSS_LX),0,255,-255,255);      //FIXME: 摇杆的方向和数值关系，测一次之后可能改顺序
-            speed_y = map(ps2x.Analog(PSS_LY),0,255,-255,255);      //这里可以用map，因为结果给PWM，只要整数
+            if (abs(ps2x.Analog(PSS_LX)-127) >= stick_sensitive_val){
+                speed_x = map(ps2x.Analog(PSS_LX),0,255,-255,255);}      //FIXME: 摇杆的方向和数值关系，测一次之后可能改顺序
+            else speed_x = 0;
+
+            if (abs(ps2x.Analog(PSS_LY)-127) >= stick_sensitive_val){
+                speed_y = map(ps2x.Analog(PSS_LY),0,255,255,-255);}      //结果要反向，因为pad上往下是大；这里可以用map，因为结果给PWM，只要整数
+            else speed_y = 0;
+
             if (ps2x.Button(PSB_TRIANGLE)){
                 Serial.print("speed_x is: ");
                 Serial.println(speed_x);
@@ -156,16 +161,16 @@ void update_value_from_pad()
         //云台仰角目标改变
             step_alpha = ps2x.Analog(PSS_RY)/255.0*angle_alpha_change_unit*4-angle_alpha_change_unit*2; //等价于有float的map(ps2x.Analog(PSS_RX),0,255,-angle_theta_change_unit*2,angle_theta_change_unit*2)
             // if (ps2x.Analog(PSS_RY) >= stick_sensitive_val_up || ps2x.Analog(PSS_RY) <= stick_sensitive_val_down){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
-            if (abs(ps2x.Analog(PSS_RY) -127.0) >= 20.0){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
-                if (angle_alpha <= angle_alpha_min) angle_alpha = angle_alpha_min;
-                else if (angle_alpha >= angle_alpha_max) angle_alpha = angle_alpha_max;
-                else angle_alpha += step_alpha;
+            if (abs(ps2x.Analog(PSS_RY) -127) >= stick_sensitive_val){     //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
+                if (angle_alpha <= angle_alpha_min-0.01) angle_alpha = angle_alpha_min;
+                else if (angle_alpha >= angle_alpha_max+0.01) angle_alpha = angle_alpha_max;
+                else angle_alpha -= step_alpha;                 //这里反向，因为pad stick往下数字更大
                 Serial.print("angle_alpha is: ");
                 Serial.println(angle_alpha);
             }
         //云台水平目标角度
             step_theta = ps2x.Analog(PSS_RX)/255.0*angle_theta_change_unit*4-angle_theta_change_unit*2; //用了255.0防止第一个除法两个整数相除变成0
-            if (abs(ps2x.Analog(PSS_RX)-127.0) >= 20.0) {    //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
+            if (abs(ps2x.Analog(PSS_RX)-127) >= stick_sensitive_val) {    //TODO: 前面变成float后，可以做摇杆位置——抬升速度的关联，但估计要用tanh函数，手柄不够灵敏
                 angle_theta += step_theta;
                 Serial.print("angle_theta is: ");
                 Serial.println(angle_theta);
