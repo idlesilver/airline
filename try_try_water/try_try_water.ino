@@ -1,11 +1,16 @@
+#define readpin A0
+#define pwm_out 1
+#define in1 2
+#define in2 3
+
+int val;
+
 void setup(){
-    Serial.begin(115200);
-    Serial.print("not map:");
-    Serial.println(100/255.0*2.0*4-2.0*2);//要有255.0
-    Serial.print("map:");
-    Serial.println(map(150,0,255,-2.0*2,2.0*2));
+    pinMode(readpin,INPUT);
+    Serial.begin(9600);
 }
 
 void loop(){
-
+    val = analogRead(readpin);
+    Serial.println(val);
 }

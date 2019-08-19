@@ -22,17 +22,47 @@
     #define pressures true          
     #define rumble true
 
+    #define WHEEL_PWM_1 A2
+    #define WHEEL_PWM_2 A3
+    #define WHEEL_PWM_3 A4
+    #define WHEEL_PWM_4 A5
+
+    #define WHEEL_IN1_1 22
+    #define WHEEL_IN2_1 23
+    #define WHEEL_IN1_2 24
+    #define WHEEL_IN2_2 25
+    #define WHEEL_IN1_3 26
+    #define WHEEL_IN2_3 27
+    #define WHEEL_IN1_4 28
+    #define WHEEL_IN2_4 29
+    
+    #define use_PID false
+
 //*************设置全局变量*************//
   //底座部分  
-    volatile int speed_x = 0;                   
-    volatile int speed_y = 0;
-    volatile int wheel_pwm_1 = 0;
-    volatile int wheel_pwm_2 = 0;
-    volatile int wheel_pwm_3 = 0;
-    volatile int wheel_pwm_4 = 0;
+    int speed_x = 0;                   
+    int speed_y = 0;
+    double wheel_speed_1 = 0;             //每个轮子希望达到的速度
+    double wheel_speed_2 = 0;
+    double wheel_speed_3 = 0;
+    double wheel_speed_4 = 0;
+    double wheel_pwm_1 = 0;               //给每个轮子的pwm信号，接给H桥的enable口，经手PID控制
+    double wheel_pwm_2 = 0;
+    double wheel_pwm_3 = 0;
+    double wheel_pwm_4 = 0;
+
+    double wheel_current_speed_1;         //读到的每个轮子的当前转速
+    double wheel_current_speed_2;
+    double wheel_current_speed_3;
+    double wheel_current_speed_4;
+
+    double Kp_wheel_1=0, Ki_wheel_1=0, Kd_wheel_1=0;
+    double Kp_wheel_2=0, Ki_wheel_2=0, Kd_wheel_2=0;
+    double Kp_wheel_3=0, Ki_wheel_3=0, Kd_wheel_3=0;
+    double Kp_wheel_4=0, Ki_wheel_4=0, Kd_wheel_4=0;
     int rotating_speed = 255;
     long  last_front_change = 0;                //cache
-    int  front_change_delay = 300;//ms         //切换方向的消抖延时
+    int  front_change_delay = 300;//ms          //切换方向的消抖延时
 
   //云台部分
     volatile float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
@@ -60,6 +90,10 @@
         byte vibrate = 0;
         int ps2x_error = 0;
         void (*resetFunc)(void) = 0;
+    PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel_1, Ki_wheel_1, Kd_wheel_1, DIRECT);
+    PID wheel_2(&wheel_current_speed_2, &wheel_pwm_2, &wheel_speed_2, Kp_wheel_2, Ki_wheel_2, Kd_wheel_2, DIRECT);
+    PID wheel_3(&wheel_current_speed_3, &wheel_pwm_3, &wheel_speed_3, Kp_wheel_3, Ki_wheel_3, Kd_wheel_3, DIRECT);
+    PID wheel_4(&wheel_current_speed_4, &wheel_pwm_4, &wheel_speed_4, Kp_wheel_4, Ki_wheel_4, Kd_wheel_4, DIRECT);
 //*************setup,loop主程序*************//
 void setup(){
     Serial.begin(9600);       //测试用
@@ -68,11 +102,33 @@ void setup(){
         ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
         if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
         else Serial.println("there is an ps2x_error, but doesn't metter!");
+    //*************PID控制*************//
+        wheel_1.SetMode(AUTOMATIC);
+        wheel_2.SetMode(AUTOMATIC);
+        wheel_3.SetMode(AUTOMATIC);
+        wheel_4.SetMode(AUTOMATIC);
     }
 void loop(){
+    // int last_time;
+    // int now;
+    // last_time = micros();
+    //*************链接手柄*************//
     if (ps2x_error == 1){resetFunc();}
     update_value_from_pad();
-
+    //*************PID控制*************//
+    speed_combine();
+    if(use_PID){
+        wheel_1.Compute();
+        wheel_2.Compute();
+        wheel_3.Compute();
+        wheel_4.Compute();
+        }else{
+        wheel_pwm_without_PID();
+        }
+    motor_control();
+    // Serial.print("time: ");
+    // now = micros();
+    // Serial.println(now-last_time);
     }
 
 void update_value_from_pad(){
@@ -141,7 +197,7 @@ void update_value_from_pad(){
         }
     //摇杆的值作为移动速度
         //测试用的串口显示：按L1或L2，输出摇杆值，用于检测
-            if (ps2x.Button(PSB_L2) || ps2x.Button(PSB_R2))
+            if (ps2x.Button(PSB_R2))
             {  
                 Serial.print(ps2x.Analog(PSS_LY), DEC); //Left stick, Y axis. Other options: LX, RY, RX
                 Serial.print(",");
@@ -204,19 +260,19 @@ void speed_combine(){
         wheel_direction_2 = 1;
         wheel_direction_3 = 1;
         wheel_direction_4 = 1;
-        wheel_pwm_1 = rotating_speed * wheel_direction_1 ;
-        wheel_pwm_2 = rotating_speed * wheel_direction_2 ;
-        wheel_pwm_3 = rotating_speed * wheel_direction_3 ;
-        wheel_pwm_4 = rotating_speed * wheel_direction_4 ;
+        wheel_speed_1 = rotating_speed * wheel_direction_1 ;
+        wheel_speed_2 = rotating_speed * wheel_direction_2 ;
+        wheel_speed_3 = rotating_speed * wheel_direction_3 ;
+        wheel_speed_4 = rotating_speed * wheel_direction_4 ;
     }else if(rotating == -1){
         wheel_direction_1 = -1;
         wheel_direction_2 = -1;
         wheel_direction_3 = -1;
         wheel_direction_4 = -1;
-        wheel_pwm_1 = rotating_speed * wheel_direction_1 ;
-        wheel_pwm_2 = rotating_speed * wheel_direction_2 ;
-        wheel_pwm_3 = rotating_speed * wheel_direction_3 ;
-        wheel_pwm_4 = rotating_speed * wheel_direction_4 ;
+        wheel_speed_1 = rotating_speed * wheel_direction_1 ;
+        wheel_speed_2 = rotating_speed * wheel_direction_2 ;
+        wheel_speed_3 = rotating_speed * wheel_direction_3 ;
+        wheel_speed_4 = rotating_speed * wheel_direction_4 ;
     }else{
         switch (front){
             case 0:
@@ -246,10 +302,10 @@ void speed_combine(){
             default:
                 break;
         }
-        wheel_pwm_1 = speed_x * wheel_direction_1 ;
-        wheel_pwm_2 = speed_x * wheel_direction_2 ;
-        wheel_pwm_3 = speed_x * wheel_direction_3 ;
-        wheel_pwm_4 = speed_x * wheel_direction_4 ;
+        wheel_speed_1 = speed_x * wheel_direction_1 ;
+        wheel_speed_2 = speed_x * wheel_direction_2 ;
+        wheel_speed_3 = speed_x * wheel_direction_3 ;
+        wheel_speed_4 = speed_x * wheel_direction_4 ;
         switch (front){
             case 0:
                 wheel_direction_1 = -1;// 1;
@@ -278,13 +334,92 @@ void speed_combine(){
             default:
                 break;
         }
-        wheel_pwm_1 += speed_y * wheel_direction_1 ;
-        wheel_pwm_2 += speed_y * wheel_direction_2 ;
-        wheel_pwm_3 += speed_y * wheel_direction_3 ;
-        wheel_pwm_4 += speed_y * wheel_direction_4 ;
-        abs(wheel_pwm_1) > 255 ? wheel_pwm_1 = 255 : wheel_pwm_1 = wheel_pwm_1;
-        abs(wheel_pwm_2) > 255 ? wheel_pwm_2 = 255 : wheel_pwm_2 = wheel_pwm_2;
-        abs(wheel_pwm_3) > 255 ? wheel_pwm_3 = 255 : wheel_pwm_3 = wheel_pwm_3;
-        abs(wheel_pwm_4) > 255 ? wheel_pwm_4 = 255 : wheel_pwm_4 = wheel_pwm_4;
+        wheel_speed_1 += speed_y * wheel_direction_1 ;
+        wheel_speed_2 += speed_y * wheel_direction_2 ;
+        wheel_speed_3 += speed_y * wheel_direction_3 ;
+        wheel_speed_4 += speed_y * wheel_direction_4 ;
+
+        if (abs(wheel_speed_1) >255){
+            if(wheel_speed_1>0){wheel_speed_1 = 255;}
+            else{wheel_speed_1 = -255;}
+        }else{wheel_speed_1 = wheel_speed_1;}
+
+        if (abs(wheel_speed_2) >255){
+            if(wheel_speed_2>0){wheel_speed_2 = 255;}
+            else{wheel_speed_2 = -255;}
+        }else{wheel_speed_2 = wheel_speed_2;}
+        
+        if (abs(wheel_speed_3) >255){
+            if(wheel_speed_3>0){wheel_speed_3 =  255;}
+            else{wheel_speed_3 = -255;}
+        }else{wheel_speed_3 = wheel_speed_3;}
+
+        if (abs(wheel_speed_4) >255){
+            if(wheel_speed_4>0){wheel_speed_4 =  255;}
+            else{wheel_speed_4 = -255;}
+        }else{wheel_speed_4 = wheel_speed_4;}
     }
+}
+void wheel_pwm_without_PID(){
+    wheel_pwm_1 = wheel_speed_1;
+    wheel_pwm_2 = wheel_speed_2;
+    wheel_pwm_3 = wheel_speed_3;
+    wheel_pwm_4 = wheel_speed_4;
+    //测试用
+    if (ps2x.Button(PSB_L2)){
+        Serial.print("wheel speed: ");
+        Serial.print(wheel_speed_1);
+        Serial.print(" | ");
+        Serial.print(wheel_speed_2);
+        Serial.print(" | ");
+        Serial.print(wheel_speed_3);
+        Serial.print(" | ");
+        Serial.println(wheel_speed_4);
+        }
+}
+void motor_control(){
+    if (wheel_pwm_1 > 0){
+        digitalWrite(WHEEL_IN1_1,HIGH);
+        digitalWrite(WHEEL_IN2_1,LOW);
+        }else if (wheel_pwm_1 < 0){
+        digitalWrite(WHEEL_IN1_1,LOW);
+        digitalWrite(WHEEL_IN2_1,HIGH);
+        }else{
+        digitalWrite(WHEEL_IN1_1,LOW);
+        digitalWrite(WHEEL_IN2_1,LOW);
+        }
+    if (wheel_pwm_2 > 0){
+        digitalWrite(WHEEL_IN1_2,HIGH);
+        digitalWrite(WHEEL_IN2_2,LOW);
+        }else if (wheel_pwm_2 < 0){
+        digitalWrite(WHEEL_IN1_2,LOW);
+        digitalWrite(WHEEL_IN2_2,HIGH);
+        }else{
+        digitalWrite(WHEEL_IN1_2,LOW);
+        digitalWrite(WHEEL_IN2_2,LOW);
+        }
+    if (wheel_pwm_3 > 0){
+        digitalWrite(WHEEL_IN1_3,HIGH);
+        digitalWrite(WHEEL_IN2_3,LOW);
+        }else if (wheel_pwm_3 < 0){
+        digitalWrite(WHEEL_IN1_3,LOW);
+        digitalWrite(WHEEL_IN2_3,HIGH);
+        }else{
+        digitalWrite(WHEEL_IN1_3,LOW);
+        digitalWrite(WHEEL_IN2_3,LOW);
+        }
+    if (wheel_pwm_4 > 0){
+        digitalWrite(WHEEL_IN1_4,HIGH);
+        digitalWrite(WHEEL_IN2_4,LOW);
+        }else if (wheel_pwm_4 < 0){
+        digitalWrite(WHEEL_IN1_4,LOW);
+        digitalWrite(WHEEL_IN2_4,HIGH);
+        }else{
+        digitalWrite(WHEEL_IN1_4,LOW);
+        digitalWrite(WHEEL_IN2_4,LOW);
+        }
+    analogWrite(WHEEL_PWM_1,abs(wheel_pwm_1));
+    analogWrite(WHEEL_PWM_2,abs(wheel_pwm_2));
+    analogWrite(WHEEL_PWM_3,abs(wheel_pwm_3));
+    analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
 }
