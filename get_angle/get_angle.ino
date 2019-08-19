@@ -9,16 +9,15 @@ int init_angle;  // 角度初始值
 
 void setup() {
     Serial.begin(9600);
-    Wire.begin();
-    mpu6050.begin();
-    mpu6050.calcGyroOffsets(true);  
+    Wire.begin();             // 开启 I2C 总线
+    mpu6050.begin();          // 开启mpu6050
+    mpu6050.calcGyroOffsets(true);    // 计算初始位置
 }
 
-void loop() {
-    mpu6050.update();
+inline void get_pitch_angle() {
+    mpu6050.update();              // 更新当前位置
 
-    if (millis() - timer > 1000) {
-        angle = mpu6050.getGyroAngleY() - init_angle;
+    if (millis() - timer > 500) {         // 每500ms更新一次当前位置
         Serial.print("The angle is: ");Serial.println(mpu6050.getGyroAngleY());
         timer = millis();
     }
