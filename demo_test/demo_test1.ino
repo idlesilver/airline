@@ -13,6 +13,10 @@
 
     #include <PID_v1.h>
 
+    #include <MPU6050_tockn.h>
+    
+    #include <Wire.h>
+
 //*************设置宏变量，针脚*************//
     #define PS2_DAT  14 //13 
     #define PS2_CMD  15 //11 
@@ -60,6 +64,12 @@
         byte vibrate = 0;
         int ps2x_error = 0;
         void (*resetFunc)(void) = 0;
+
+    MPU6050 mpu6050(Wire);
+        long timer = 0;  // 存储每次迭代开始时的时间
+        int angle;  // 相对于初始值旋转的角度，逆时针为正，顺时针为负
+        int init_angle;  // 角度初始值
+
 //*************setup,loop主程序*************//
 void setup(){
     Serial.begin(9600);       //测试用
@@ -68,6 +78,11 @@ void setup(){
         ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
         if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
         else Serial.println("there is an ps2x_error, but doesn't metter!");
+
+    //***********初始化MPU6050**********//
+        Wire.begin();             // 开启 I2C 总线
+        mpu6050.begin();          // 开启mpu6050
+        mpu6050.calcGyroOffsets(true);    // 计算初始位置
     }
 void loop(){
     if (ps2x_error == 1){resetFunc();}
@@ -286,5 +301,15 @@ void speed_combine(){
         abs(wheel_pwm_2) > 255 ? wheel_pwm_2 = 255 : wheel_pwm_2 = wheel_pwm_2;
         abs(wheel_pwm_3) > 255 ? wheel_pwm_3 = 255 : wheel_pwm_3 = wheel_pwm_3;
         abs(wheel_pwm_4) > 255 ? wheel_pwm_4 = 255 : wheel_pwm_4 = wheel_pwm_4;
+    }
+}
+
+//**********获取云台角度数据***********//
+inline void get_pitch_angle() {
+    mpu6050.update();              // 更新当前位置
+
+    if (millis() - timer > 500) {         // 每500ms更新一次当前位置
+        Serial.print("The angle is: ");Serial.println(mpu6050.getGyroAngleY());
+        timer = millis();
     }
 }
