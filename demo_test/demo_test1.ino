@@ -18,18 +18,23 @@
     #include <Wire.h>
 
 //*************设置宏变量，针脚*************//
+    #define pressures true          
+    #define rumble true
+
     #define PS2_DAT  14 //13 
     #define PS2_CMD  15 //11 
     #define PS2_SEL  16 //10 
     #define PS2_CLK  17 //12 
 
-    #define pressures true          
-    #define rumble true
+    #define WHEEL_PWM_1 2
+    #define WHEEL_PWM_2 3
+    #define WHEEL_PWM_3 4
+    #define WHEEL_PWM_4 5
 
-    #define WHEEL_PWM_1 A2
-    #define WHEEL_PWM_2 A3
-    #define WHEEL_PWM_3 A4
-    #define WHEEL_PWM_4 A5
+    #define WHEEL_SPEED_READ_1 A0
+    #define WHEEL_SPEED_READ_2 A1
+    #define WHEEL_SPEED_READ_3 A2
+    #define WHEEL_SPEED_READ_4 A3
 
     #define WHEEL_IN1_1 22
     #define WHEEL_IN2_1 23
@@ -100,6 +105,31 @@
     PID wheel_4(&wheel_current_speed_4, &wheel_pwm_4, &wheel_speed_4, Kp_wheel_4, Ki_wheel_4, Kd_wheel_4, DIRECT);
 //*************setup,loop主程序*************//
 void setup(){
+    //*************设置针脚模式*************//
+    pinMode(PS2_DAT,OUTPUT);
+    pinMode(PS2_CMD,OUTPUT);
+    pinMode(PS2_SEL,OUTPUT);
+    pinMode(PS2_CLK,OUTPUT);
+
+    pinMode(WHEEL_PWM_1,OUTPUT);
+    pinMode(WHEEL_PWM_2,OUTPUT);
+    pinMode(WHEEL_PWM_3,OUTPUT);
+    pinMode(WHEEL_PWM_4,OUTPUT);
+
+    pinMode(WHEEL_IN1_1,OUTPUT);
+    pinMode(WHEEL_IN2_1,OUTPUT);
+    pinMode(WHEEL_IN1_2,OUTPUT);
+    pinMode(WHEEL_IN2_2,OUTPUT);
+    pinMode(WHEEL_IN1_3,OUTPUT);
+    pinMode(WHEEL_IN2_3,OUTPUT);
+    pinMode(WHEEL_IN1_4,OUTPUT);
+    pinMode(WHEEL_IN2_4,OUTPUT);
+
+    pinMode(WHEEL_SPEED_READ_1,INPUT); //TODO:还没有设置读取函数，现在只有脚
+    pinMode(WHEEL_SPEED_READ_1,INPUT);
+    pinMode(WHEEL_SPEED_READ_1,INPUT);
+    pinMode(WHEEL_SPEED_READ_1,INPUT);
+
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
         delay(1000);                //手柄配对延时
@@ -119,7 +149,7 @@ void loop(){
     //*************链接手柄*************//
     if (ps2x_error == 1){resetFunc();}
     update_value_from_pad();
-    //*************PID控制*************//
+    //*************车轮PID控制*************//
     speed_combine();
     if(use_PID){
         wheel_1.Compute();
@@ -136,7 +166,17 @@ void loop(){
     }
 
 void update_value_from_pad(){
-    /*忽略按键:
+    /* 从遥控手柄读取并更新目标值
+     * output：
+     *  speed_x
+     *  speed_y
+     *  rotating
+     *  front
+     *  angle_alpha
+     *  angle_theta
+     *  shoot_once
+     *  shoot_dadada
+     *忽略按键:
      *  start
      *  select
      *  PSB_L2(test_only now)
@@ -144,7 +184,7 @@ void update_value_from_pad(){
      *  PSB_L3
      *  PSB_R3
      *  Square
-     *  Triangle
+     *  Triangle(test_only)
      *  CROSS(test_only now)
      */
     //******************读手柄数据******************//
@@ -255,6 +295,17 @@ void update_value_from_pad(){
     delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
 }
 void speed_combine(){
+    /* 把speed_x，y和front变成四个轮子的speed
+     * 对应的数值正负表示旋转方向
+     * input:
+     *  speed_x
+     *  speed_y
+     * output：
+     *   wheel_speed_1
+     *   wheel_speed_2
+     *   wheel_speed_3
+     *   wheel_speed_4
+     * */
     int wheel_direction_1 = 1;
     int wheel_direction_2 = 1;
     int wheel_direction_3 = 1;
@@ -365,6 +416,12 @@ void speed_combine(){
     }
 }
 void wheel_pwm_without_PID(){
+    /* 直接把wheel_speed变成pwm没有pid控制
+     * input:
+     *  wheel_speed_[1-4]
+     * output:
+     *  wheel_pwm_[1-4]
+     */
     wheel_pwm_1 = wheel_speed_1;
     wheel_pwm_2 = wheel_speed_2;
     wheel_pwm_3 = wheel_speed_3;
@@ -382,6 +439,14 @@ void wheel_pwm_without_PID(){
         }
 }
 void motor_control(){
+    /* 根据wheel_pwm的正负给方向，根据绝对值给大小
+     * 传入H桥
+     * input:
+     *  wheel_pwm_[1-4]
+     * output：
+     *  WHEEL_IN[1-2]_[1-4]
+     *  WHEEL_PWM_[1-4]
+     */
     if (wheel_pwm_1 > 0){
         digitalWrite(WHEEL_IN1_1,HIGH);
         digitalWrite(WHEEL_IN2_1,LOW);

@@ -1,11 +1,14 @@
+#define servopin 9
+#define pos_time 2000
+
 void setup(){
-    Serial.begin(115200);
-    Serial.print("not map:");
-    Serial.println(100/255.0*2.0*4-2.0*2);//要有255.0
-    Serial.print("map:");
-    Serial.println(map(150,0,255,-2.0*2,2.0*2));
+    pinMode(servopin,OUTPUT);
+    Serial.begin(9600);
 }
 
 void loop(){
-
-}
+    digitalWrite(servopin,HIGH);
+    delayMicroseconds(pos_time);
+    digitalWrite(servopin,LOW);
+    delayMicroseconds(20000-pos_time);
+    Serial.println("da");
