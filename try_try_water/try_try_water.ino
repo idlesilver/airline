@@ -12,4 +12,3 @@ void loop(){
     digitalWrite(servopin,LOW);
     delayMicroseconds(20000-pos_time);
     Serial.println("da");
-}

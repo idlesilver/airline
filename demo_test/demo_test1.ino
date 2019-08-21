@@ -13,6 +13,10 @@
 
     #include <PID_v1.h>
 
+    #include <MPU6050_tockn.h>
+    
+    #include <Wire.h>
+
 //*************设置宏变量，针脚*************//
     #define pressures true          
     #define rumble true
