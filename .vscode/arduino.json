@@ -1,5 +1,5 @@
 {
-    "board": "arduino:avr:mega",
-    "port": "COM4",
-    "configuration": "cpu=atmega2560"
+    "board": "arduino:avr:uno",
+    "port": "COM5",
+    "sketch": "get_angle\\get_angle.ino"
 }
