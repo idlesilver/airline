@@ -13,6 +13,10 @@
 
     #include <PID_v1.h>
 
+    #include <MPU6050_tockn.h>
+    
+    #include <Wire.h>
+
 //*************设置宏变量，针脚*************//
     #define PS2_DAT  14 //13 
     #define PS2_CMD  15 //11 
