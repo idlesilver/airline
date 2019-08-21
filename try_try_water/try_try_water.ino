@@ -1,16 +1,15 @@
-#define readpin A0
-#define pwm_out 1
-#define in1 2
-#define in2 3
-
-int val;
+#define servopin 9
+#define pos_time 2000
 
 void setup(){
-    pinMode(readpin,INPUT);
+    pinMode(servopin,OUTPUT);
     Serial.begin(9600);
 }
 
 void loop(){
-    val = analogRead(readpin);
-    Serial.println(val);
+    digitalWrite(servopin,HIGH);
+    delayMicroseconds(pos_time);
+    digitalWrite(servopin,LOW);
+    delayMicroseconds(20000-pos_time);
+    Serial.println("da");
 }
