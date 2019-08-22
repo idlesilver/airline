@@ -1,5 +1,0 @@
-{
-    "board": "arduino:avr:uno",
-    "port": "COM5",
-    "sketch": "get_angle\\get_angle.ino"
-}
