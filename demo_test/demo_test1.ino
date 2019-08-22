@@ -46,6 +46,15 @@
     #define WHEEL_IN2_4 29
 
     #define SERVO_PIN 53
+
+    #define STEPPER_YAW_1 30
+    #define STEPPER_YAW_2 32
+    #define STEPPER_YAW_3 34
+    #define STEPPER_YAW_4 36
+    #define STEPPER_SHOOT_1 31
+    #define STEPPER_SHOOT_2 33
+    #define STEPPER_SHOOT_3 35
+    #define STEPPER_SHOOT_4 37
     
     #define use_PID false
 
@@ -76,7 +85,7 @@
 
   //云台部分
     volatile float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
-    volatile float angle_alpha = 0;             //FIXME:舵机启动时的水平位置，记得改
+    volatile float angle_alpha = 0;             //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
     volatile bool shoot_once = 0;               
     volatile bool shoot_dadada = 0;
     volatile int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
@@ -85,13 +94,16 @@
     float current_angle_theta = 0;              //由传感器测得的当前角度值
     float current_angle_alpha = 0;
 
+    volatile bool moveClockwise = true;
     const float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
     float step_theta = 0;                       //用作储存中间变量,不用改
-    int   speedup_ratio = 5;                    //云台齿轮组加速比
+    int step_each_time = 4096/64;               //stepper_yaw每次改变的步数，用于控制theta的精度
+    int   speedup_ratio = 5;                    //yaw电机轴速度和云台真实轴速度的比值，不是加速比
 
     volatile float step_alpha = 0;              //用作储存中间变量,不用改
     float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改
-    const float angle_alpha_max = 30;                 //FIXME: 舵机的俯仰角限制范围，记得改
+    const float angle_alpha_offset = 90;
+    const float angle_alpha_max = 30;                 //就是中立位正负的角度，调整
     const float angle_alpha_min = -30;
 
   //手柄部分
@@ -104,6 +116,8 @@
         int ps2x_error = 0;
         void (*resetFunc)(void) = 0;
     Servo myservo;
+    CheapStepper stepper_yaw (STEPPER_YAW_1,STEPPER_YAW_2,STEPPER_YAW_3,STEPPER_YAW_4);  
+    CheapStepper stepper_shoot (STEPPER_SHOOT_1,STEPPER_SHOOT_2,STEPPER_SHOOT_3,STEPPER_SHOOT_4);  
     PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel_1, Ki_wheel_1, Kd_wheel_1, DIRECT);
     PID wheel_2(&wheel_current_speed_2, &wheel_pwm_2, &wheel_speed_2, Kp_wheel_2, Ki_wheel_2, Kd_wheel_2, DIRECT);
     PID wheel_3(&wheel_current_speed_3, &wheel_pwm_3, &wheel_speed_3, Kp_wheel_3, Ki_wheel_3, Kd_wheel_3, DIRECT);
@@ -135,6 +149,8 @@ void setup(){
     pinMode(WHEEL_SPEED_READ_1,INPUT);
     pinMode(WHEEL_SPEED_READ_1,INPUT);
 
+    //servo和stepper在类中有pinmode初始化
+
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
         delay(1000);                //手柄配对延时
@@ -142,18 +158,17 @@ void setup(){
         if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
         else Serial.println("there is an ps2x_error, but doesn't metter!");
     //*************初始化位置*************//
-        myservo.write(90);                  //pitch轴回中
-
+        myservo.write(angle_alpha_offset);  //pitch轴回中
+        stepper_yaw_initial();              //设置yaw轴步进电机速度
     //*************传感器读取当前位置*************//
         Wire.begin();                       // 开启 I2C 总线
         mpu6050.begin();                    // 开启mpu6050
         mpu6050.calcGyroOffsets(true);      // 计算初始位置
         mpu6050.update();
-        current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+        current_angle_alpha = mpu6050.getGyroAngleY();  //alpha角度似乎没什么用，舵机控制的好好的
         current_angle_theta = mpu6050.getGyroAngleZ();
         angle_alpha = mpu6050.getGyroAngleY();
         angle_theta = mpu6050.getGyroAngleZ();
-
     //*************PID控制*************//
         wheel_1.SetMode(AUTOMATIC);
         wheel_2.SetMode(AUTOMATIC);
@@ -164,6 +179,7 @@ void loop(){
     // int last_time;
     // int now;
     // last_time = micros();
+
     //*************链接手柄*************//
     if (ps2x_error == 1){resetFunc();}
     update_value_from_pad();
@@ -181,11 +197,20 @@ void loop(){
         }
     motor_control();
     //*************舵机控制*************//
+    servo_control();
+    //*************云台转向控制*************//
+    stepper_yaw_steps();
     // Serial.print("time: ");
     // now = micros();
     // Serial.println(now-last_time);
     }
 
+void ps2x_initial(){
+    delay(1000);                //手柄配对延时
+    ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+    if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
+    else Serial.println("there is an ps2x_error, but doesn't metter!");
+}
 void update_value_from_pad(){
     /* 从遥控手柄读取并更新目标值
      * output：
@@ -315,6 +340,7 @@ void update_value_from_pad(){
         }
     delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
 }
+
 void speed_combine(){
     /* 把speed_x，y和front变成四个轮子的speed
      * 对应的数值正负表示旋转方向
@@ -513,6 +539,17 @@ void motor_control(){
     analogWrite(WHEEL_PWM_3,abs(wheel_pwm_3));
     analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
 }
+
+void mpu_initial(){
+        Wire.begin();                       // 开启 I2C 总线
+        mpu6050.begin();                    // 开启mpu6050
+        mpu6050.calcGyroOffsets(true);      // 计算初始位置
+        mpu6050.update();
+        current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+        current_angle_theta = mpu6050.getGyroAngleZ();
+        angle_alpha = mpu6050.getGyroAngleY();
+        angle_theta = mpu6050.getGyroAngleZ();
+}
 inline void update_current_position() {
     mpu6050.update();              // 更新当前位置
     if (millis() - timer > 500) {         // 每500ms更新一次当前位置
@@ -526,6 +563,31 @@ inline void update_current_position() {
         timer = millis();
     }
 }
+
+void servo_initial(){
+    myservo.write(angle_alpha_offset);                  //pitch轴回中
+}
 void servo_control(){
-    myservo.write(angle_alpha);
+    myservo.write(angle_alpha+angle_alpha_offset);
+}
+
+void stepper_yaw_initial(){
+    stepper_yaw.setRpm(20);
+    stepper_yaw.stop();
+}
+void stepper_yaw_with_angle(){//不知道库里的函数能不能直接用，这边加速齿轮会比较难算
+    stepper_yaw.run();
+    if(angle_theta - current_angle_theta > 0){moveClockwise = true;}
+    else if(angle_theta - current_angle_theta <0){moveClockwise = false;}
+    stepper_yaw.newMoveToDegree(moveClockwise,angle_theta);
+}
+void stepper_yaw_steps(){//这样一定能转到想转的位置,但是每次更新几步是个问题
+    if (int(angle_theta - current_angle_theta) > 1){//化成int，防止两个float相减不为0
+        if(angle_theta - current_angle_theta > 0){moveClockwise = true;}        //FIXME:不知道方向对不对，可能还大于小于号
+        else if(angle_theta - current_angle_theta < 0){moveClockwise = false;}
+        stepper_yaw.newMoveDegrees(moveClockwise,int(angle_theta - current_angle_theta)*speedup_ratio);//讲道理这里不用ratio也可以
+    }else{
+        stepper_yaw.stop();
+    }
+    stepper_yaw.run();
 }
