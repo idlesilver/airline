@@ -44,6 +44,8 @@
     #define WHEEL_IN2_3 27
     #define WHEEL_IN1_4 28
     #define WHEEL_IN2_4 29
+
+    #define SERVO_PIN 53
     
     #define use_PID false
 
@@ -59,36 +61,38 @@
     double wheel_pwm_2 = 0;
     double wheel_pwm_3 = 0;
     double wheel_pwm_4 = 0;
-
-    double wheel_current_speed_1;         //读到的每个轮子的当前转速
-    double wheel_current_speed_2;
-    double wheel_current_speed_3;
-    double wheel_current_speed_4;
+    double wheel_current_speed_1 = 0;         //读到的每个轮子的当前转速
+    double wheel_current_speed_2 = 0;
+    double wheel_current_speed_3 = 0;
+    double wheel_current_speed_4 = 0;
 
     double Kp_wheel_1=0, Ki_wheel_1=0, Kd_wheel_1=0;
     double Kp_wheel_2=0, Ki_wheel_2=0, Kd_wheel_2=0;
     double Kp_wheel_3=0, Ki_wheel_3=0, Kd_wheel_3=0;
     double Kp_wheel_4=0, Ki_wheel_4=0, Kd_wheel_4=0;
-    int rotating_speed = 255;
-    long  last_front_change = 0;                //cache
-    int  front_change_delay = 300;//ms          //切换方向的消抖延时
+    long  last_front_change = 0;                        //cache
+    const int rotating_speed = 255;
+    const int  front_change_delay = 300;//ms            //切换方向的消抖延时
 
   //云台部分
     volatile float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
-    volatile float angle_alpha = 70;            //FIXME:舵机启动时的水平位置，记得改
+    volatile float angle_alpha = 0;             //FIXME:舵机启动时的水平位置，记得改
     volatile bool shoot_once = 0;               
     volatile bool shoot_dadada = 0;
     volatile int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
     volatile int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
-    float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
+    float current_angle_theta = 0;              //由传感器测得的当前角度值
+    float current_angle_alpha = 0;
+
+    const float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
     float step_theta = 0;                       //用作储存中间变量,不用改
     int   speedup_ratio = 5;                    //云台齿轮组加速比
 
     volatile float step_alpha = 0;              //用作储存中间变量,不用改
     float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改
-    float angle_alpha_max = 90;                 //FIXME: 舵机的俯仰角限制范围，记得改
-    float angle_alpha_min = 45;
+    const float angle_alpha_max = 30;                 //FIXME: 舵机的俯仰角限制范围，记得改
+    const float angle_alpha_min = -30;
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -99,6 +103,7 @@
         byte vibrate = 0;
         int ps2x_error = 0;
         void (*resetFunc)(void) = 0;
+    Servo myservo;
     PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel_1, Ki_wheel_1, Kd_wheel_1, DIRECT);
     PID wheel_2(&wheel_current_speed_2, &wheel_pwm_2, &wheel_speed_2, Kp_wheel_2, Ki_wheel_2, Kd_wheel_2, DIRECT);
     PID wheel_3(&wheel_current_speed_3, &wheel_pwm_3, &wheel_speed_3, Kp_wheel_3, Ki_wheel_3, Kd_wheel_3, DIRECT);
@@ -136,6 +141,19 @@ void setup(){
         ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
         if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
         else Serial.println("there is an ps2x_error, but doesn't metter!");
+    //*************初始化位置*************//
+        myservo.write(90);                  //pitch轴回中
+
+    //*************传感器读取当前位置*************//
+        Wire.begin();                       // 开启 I2C 总线
+        mpu6050.begin();                    // 开启mpu6050
+        mpu6050.calcGyroOffsets(true);      // 计算初始位置
+        mpu6050.update();
+        current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+        current_angle_theta = mpu6050.getGyroAngleZ();
+        angle_alpha = mpu6050.getGyroAngleY();
+        angle_theta = mpu6050.getGyroAngleZ();
+
     //*************PID控制*************//
         wheel_1.SetMode(AUTOMATIC);
         wheel_2.SetMode(AUTOMATIC);
@@ -149,6 +167,8 @@ void loop(){
     //*************链接手柄*************//
     if (ps2x_error == 1){resetFunc();}
     update_value_from_pad();
+    //*************读取当前位置*************//
+    update_current_position()
     //*************车轮PID控制*************//
     speed_combine();
     if(use_PID){
@@ -160,6 +180,7 @@ void loop(){
         wheel_pwm_without_PID();
         }
     motor_control();
+    //*************舵机控制*************//
     // Serial.print("time: ");
     // now = micros();
     // Serial.println(now-last_time);
@@ -491,4 +512,20 @@ void motor_control(){
     analogWrite(WHEEL_PWM_2,abs(wheel_pwm_2));
     analogWrite(WHEEL_PWM_3,abs(wheel_pwm_3));
     analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
+}
+inline void update_current_position() {
+    mpu6050.update();              // 更新当前位置
+    if (millis() - timer > 500) {         // 每500ms更新一次当前位置
+        Serial.print(mpu6050.getGyroAngleX());
+        Serial.print(" | ");
+        Serial.print(mpu6050.getGyroAngleY());
+        Serial.print(" | ");
+        Serial.println(mpu6050.getGyroAngleZ());
+        current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
+        current_angle_theta = mpu6050.getGyroAngleZ();
+        timer = millis();
+    }
+}
+void servo_control(){
+    myservo.write(angle_alpha);
 }

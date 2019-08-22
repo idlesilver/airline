@@ -19,7 +19,11 @@ void loop(){
 inline void get_pitch_angle() {
     mpu6050.update();              // 更新当前位置
     if (millis() - timer > 500) {         // 每500ms更新一次当前位置
-        Serial.print("The angle is: ");Serial.println(mpu6050.getGyroAngleY());
+        Serial.print(mpu6050.getGyroAngleX());
+        Serial.print(" | ");
+        Serial.print(mpu6050.getGyroAngleY());
+        Serial.print(" | ");
+        Serial.println(mpu6050.getGyroAngleZ());
         timer = millis();
     }
 }
