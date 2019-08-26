@@ -55,6 +55,8 @@
     #define STEPPER_SHOOT_2 33
     #define STEPPER_SHOOT_3 35
     #define STEPPER_SHOOT_4 37
+
+    #define FRICTION_WHEEL 50
     
     #define use_PID false
 
@@ -86,8 +88,6 @@
   //云台部分
     volatile float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
     volatile float angle_alpha = 0;             //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
-    volatile bool shoot_once = 0;               
-    volatile bool shoot_dadada = 0;
     volatile int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
     volatile int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
@@ -105,6 +105,11 @@
     const float angle_alpha_offset = 90;
     const float angle_alpha_max = 30;                 //就是中立位正负的角度，调整
     const float angle_alpha_min = -30;
+
+    volatile bool shoot_once = false;           //不要once了       
+    volatile bool shoot_dadada = false;
+    bool friction_wheel_on = false;              //摩擦轮转动标志
+    const shoot_speed = 6;                      //供弹步进电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -143,6 +148,8 @@ void setup(){
     pinMode(WHEEL_IN2_3,OUTPUT);
     pinMode(WHEEL_IN1_4,OUTPUT);
     pinMode(WHEEL_IN2_4,OUTPUT);
+
+    pinMode(FRICTION_WHEEL,OUTPUT);
 
     pinMode(WHEEL_SPEED_READ_1,INPUT); //TODO:还没有设置读取函数，现在只有脚
     pinMode(WHEEL_SPEED_READ_1,INPUT);
@@ -211,6 +218,7 @@ void ps2x_initial(){
     if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
     else Serial.println("there is an ps2x_error, but doesn't metter!");
 }
+//*************手柄更新*************//
 void update_value_from_pad(){
     /* 从遥控手柄读取并更新目标值
      * output：
@@ -277,7 +285,7 @@ void update_value_from_pad(){
         }
     //按下circle键，改变front，即小车正方向
         if (ps2x.ButtonPressed(PSB_CIRCLE))
-        {   //TODO:这里可能需要一个消抖。。。
+        {   //TODO:ButtonPressed本身就有消抖
             if (millis()-last_front_change >= front_change_delay){
                 front = (front + 1) % 4;
                 last_front_change = millis();
@@ -329,18 +337,19 @@ void update_value_from_pad(){
                 Serial.println(angle_theta);
             }
     //射击模块
-        if (ps2x.Button(PSB_L1)){
-            shoot_once = true;
-            Serial.print("shoot once: ");
-            Serial.println(shoot_once);
-        }else if (ps2x.Button(PSB_R1)){
+        if (ps2x.ButtonPressed(PSB_L1)){
+            friction_wheel_on = !friction_wheel_on;
+            Serial.print("friction_wheel_on is: ");
+            Serial.println(friction_wheel_on);
+        }
+        if (ps2x.Button(PSB_R1)){
             shoot_dadada = true;
             Serial.print("shoot_dadada: ");
             Serial.println(shoot_dadada);
         }
     delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
 }
-
+//*************车轮控制*************//
 void speed_combine(){
     /* 把speed_x，y和front变成四个轮子的speed
      * 对应的数值正负表示旋转方向
@@ -539,7 +548,7 @@ void motor_control(){
     analogWrite(WHEEL_PWM_3,abs(wheel_pwm_3));
     analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
 }
-
+//*************云台指向*************//
 void mpu_initial(){
         Wire.begin();                       // 开启 I2C 总线
         mpu6050.begin();                    // 开启mpu6050
@@ -563,14 +572,14 @@ inline void update_current_position() {
         timer = millis();
     }
 }
-
+//*************舵机指向*************//
 void servo_initial(){
     myservo.write(angle_alpha_offset);                  //pitch轴回中
 }
 void servo_control(){
     myservo.write(angle_alpha+angle_alpha_offset);
 }
-
+//*************云台步进电机*************//
 void stepper_yaw_initial(){
     stepper_yaw.setRpm(20);
     stepper_yaw.stop();
@@ -590,4 +599,28 @@ void stepper_yaw_steps(){//这样一定能转到想转的位置,但是每次更�
         stepper_yaw.stop();
     }
     stepper_yaw.run();
+}
+//*************射弹控制*************//
+void stepper_shoot_initial(){
+    stepper_shoot.setRpm(shoot_speed);
+    stepper_shoot.stop();
+}
+void stepper_shoot_dadada_run(){
+    if(friction_wheel_on || shoot_dadada){
+        if(stepper_shoot.getStepsLeft()==0){
+            stepper_shoot.newMoveDegrees(30);
+            stepper_shoot.run();
+        }else{
+            stepper_shoot.run();
+        }
+    }else{
+        stepper_shoot.stop();
+    }
+}
+void friction_wheel_run(){
+    if(friction_wheel_on){
+        digitalWrite(FRICTION_WHEEL,HIGH);
+    }else{
+        digitalWrite(FRICTION_WHEEL,LOW);
+    }
 }
