@@ -109,7 +109,7 @@
     volatile bool shoot_once = false;           //不要once了       
     volatile bool shoot_dadada = false;
     bool friction_wheel_on = false;              //摩擦轮转动标志
-    const shoot_speed = 6;                      //供弹步进电机转速
+    const int shoot_speed = 6;                      //供弹步进电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -130,39 +130,42 @@
 //*************setup,loop主程序*************//
 void setup(){
     //*************设置针脚模式*************//
-    pinMode(PS2_DAT,OUTPUT);
-    pinMode(PS2_CMD,OUTPUT);
-    pinMode(PS2_SEL,OUTPUT);
-    pinMode(PS2_CLK,OUTPUT);
+        pinMode(PS2_DAT,OUTPUT);
+        pinMode(PS2_CMD,OUTPUT);
+        pinMode(PS2_SEL,OUTPUT);
+        pinMode(PS2_CLK,OUTPUT);
 
-    pinMode(WHEEL_PWM_1,OUTPUT);
-    pinMode(WHEEL_PWM_2,OUTPUT);
-    pinMode(WHEEL_PWM_3,OUTPUT);
-    pinMode(WHEEL_PWM_4,OUTPUT);
+        pinMode(WHEEL_PWM_1,OUTPUT);
+        pinMode(WHEEL_PWM_2,OUTPUT);
+        pinMode(WHEEL_PWM_3,OUTPUT);
+        pinMode(WHEEL_PWM_4,OUTPUT);
 
-    pinMode(WHEEL_IN1_1,OUTPUT);
-    pinMode(WHEEL_IN2_1,OUTPUT);
-    pinMode(WHEEL_IN1_2,OUTPUT);
-    pinMode(WHEEL_IN2_2,OUTPUT);
-    pinMode(WHEEL_IN1_3,OUTPUT);
-    pinMode(WHEEL_IN2_3,OUTPUT);
-    pinMode(WHEEL_IN1_4,OUTPUT);
-    pinMode(WHEEL_IN2_4,OUTPUT);
+        pinMode(WHEEL_IN1_1,OUTPUT);
+        pinMode(WHEEL_IN2_1,OUTPUT);
+        pinMode(WHEEL_IN1_2,OUTPUT);
+        pinMode(WHEEL_IN2_2,OUTPUT);
+        pinMode(WHEEL_IN1_3,OUTPUT);
+        pinMode(WHEEL_IN2_3,OUTPUT);
+        pinMode(WHEEL_IN1_4,OUTPUT);
+        pinMode(WHEEL_IN2_4,OUTPUT);
 
-    pinMode(FRICTION_WHEEL,OUTPUT);
+        pinMode(FRICTION_WHEEL,OUTPUT);
 
-    pinMode(WHEEL_SPEED_READ_1,INPUT); //TODO:还没有设置读取函数，现在只有脚
-    pinMode(WHEEL_SPEED_READ_1,INPUT);
-    pinMode(WHEEL_SPEED_READ_1,INPUT);
-    pinMode(WHEEL_SPEED_READ_1,INPUT);
+        pinMode(WHEEL_SPEED_READ_1,INPUT); //TODO:还没有设置读取函数，现在只有脚
+        pinMode(WHEEL_SPEED_READ_1,INPUT);
+        pinMode(WHEEL_SPEED_READ_1,INPUT);
+        pinMode(WHEEL_SPEED_READ_1,INPUT);
 
-    //servo和stepper在类中有pinmode初始化
+        //servo和stepper在类中有pinmode初始化
 
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
-        ps2x_initial();
+        delay(1000);                //手柄配对延时
+        ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+        if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
+        else Serial.println("there is an ps2x_error, but doesn't metter!");
     //*************初始化位置*************//
-        mpu_initial();
+        // mpu_initial();
         servo_initial();                    //pitch轴回中
         stepper_yaw_initial();              //设置yaw轴步进电机速度
         stepper_shoot_initial();
@@ -182,7 +185,7 @@ void loop(){
         if (ps2x_error == 1){resetFunc();}
         update_value_from_pad();
     //*************读取当前位置*************//
-        update_current_position();
+        // update_current_position();
     //*************车轮PID控制*************//
         speed_combine();
         if(use_PID){
@@ -543,29 +546,29 @@ void motor_control(){
     analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
 }
 //*************云台指向*************//
-void mpu_initial(){
-        Wire.begin();                       // 开启 I2C 总线
-        mpu6050.begin();                    // 开启mpu6050
-        mpu6050.calcGyroOffsets(true);      // 计算初始位置
-        mpu6050.update();
-        current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
-        current_angle_theta = mpu6050.getGyroAngleZ();
-        angle_alpha = mpu6050.getGyroAngleY();
-        angle_theta = mpu6050.getGyroAngleZ();
-}
-inline void update_current_position() {
-    mpu6050.update();              // 更新当前位置
-    if (millis() - timer > 500) {         // 每500ms更新一次当前位置
-        Serial.print(mpu6050.getGyroAngleX());
-        Serial.print(" | ");
-        Serial.print(mpu6050.getGyroAngleY());
-        Serial.print(" | ");
-        Serial.println(mpu6050.getGyroAngleZ());
-        current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
-        current_angle_theta = mpu6050.getGyroAngleZ();
-        timer = millis();
-    }
-}
+// void mpu_initial(){
+//         Wire.begin();                       // 开启 I2C 总线
+//         mpu6050.begin();                    // 开启mpu6050
+//         mpu6050.calcGyroOffsets(true);      // 计算初始位置
+//         mpu6050.update();
+//         current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+//         current_angle_theta = mpu6050.getGyroAngleZ();
+//         angle_alpha = mpu6050.getGyroAngleY();
+//         angle_theta = mpu6050.getGyroAngleZ();
+// }
+// void update_current_position() {
+//     mpu6050.update();              // 更新当前位置
+//     if (millis() - timer > 500) {         // 每500ms更新一次当前位置
+//         Serial.print(mpu6050.getGyroAngleX());
+//         Serial.print(" | ");
+//         Serial.print(mpu6050.getGyroAngleY());
+//         Serial.print(" | ");
+//         Serial.println(mpu6050.getGyroAngleZ());
+//         current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
+//         current_angle_theta = mpu6050.getGyroAngleZ();
+//         timer = millis();
+//     }
+// }
 //*************舵机指向*************//
 void servo_initial(){
     myservo.write(angle_alpha_offset);                  //pitch轴回中
@@ -602,7 +605,7 @@ void stepper_shoot_initial(){
 void stepper_shoot_dadada_run(){
     if(friction_wheel_on || shoot_dadada){
         if(stepper_shoot.getStepsLeft()==0){
-            stepper_shoot.newMoveDegrees(30);
+            stepper_shoot.newMoveDegrees(true,30);
             stepper_shoot.run();
         }else{
             stepper_shoot.run();
