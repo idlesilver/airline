@@ -113,9 +113,8 @@
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
-    
-
 //*************新建实例，初始化实例*************//
+    Thread readpad = Thread();
     PS2X ps2x; // create PS2 Controller Class
         byte vibrate = 0;
         int ps2x_error = 0;
@@ -161,6 +160,8 @@ void setup(){
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
         ps2x_initial();
+        readpad.onRun(update_value_from_pad);
+        readpad.setInterval(50);
     //*************初始化位置*************//
         mpu_initial();
         servo_initial();                    //pitch轴回中
@@ -180,7 +181,8 @@ void loop(){
 
     //*************链接手柄*************//
         if (ps2x_error == 1){resetFunc();}
-        update_value_from_pad();
+        if(readpad.shouldRun())
+            readpad.run();
     //*************读取当前位置*************//
         update_current_position();
     //*************车轮PID控制*************//
@@ -341,7 +343,6 @@ void update_value_from_pad(){
             Serial.print("shoot_dadada: ");
             Serial.println(shoot_dadada);
         }
-    delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
 }
 //*************车轮控制*************//
 void speed_combine(){
