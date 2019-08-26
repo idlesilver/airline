@@ -121,6 +121,7 @@
         int ps2x_error = 0;
         void (*resetFunc)(void) = 0;
     Servo myservo;
+    MPU6050 mpu6050(Wire);  // 新建一个mpu6050实例
     CheapStepper stepper_yaw (STEPPER_YAW_1,STEPPER_YAW_2,STEPPER_YAW_3,STEPPER_YAW_4);  
     CheapStepper stepper_shoot (STEPPER_SHOOT_1,STEPPER_SHOOT_2,STEPPER_SHOOT_3,STEPPER_SHOOT_4);  
     PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel_1, Ki_wheel_1, Kd_wheel_1, DIRECT);
@@ -160,12 +161,20 @@ void setup(){
 
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
-        delay(1000);                //手柄配对延时
+        // delay(500);                //手柄配对延时
         ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
         if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
         else Serial.println("there is an ps2x_error, but doesn't metter!");
     //*************初始化位置*************//
-        // mpu_initial();
+        // Wire.begin();                       // 开启 I2C 总线
+        // mpu6050.begin();                    // 开启mpu6050
+        // mpu6050.calcGyroOffsets(true);      // 计算初始位置
+        // mpu6050.update();
+        // current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+        // current_angle_theta = mpu6050.getGyroAngleZ();
+        // angle_alpha = mpu6050.getGyroAngleY();
+        // angle_theta = mpu6050.getGyroAngleZ();
+        mpu_initial();
         servo_initial();                    //pitch轴回中
         stepper_yaw_initial();              //设置yaw轴步进电机速度
         stepper_shoot_initial();
@@ -180,12 +189,11 @@ void loop(){
     // int last_time;
     // int now;
     // last_time = micros();
-
     //*************链接手柄*************//
         if (ps2x_error == 1){resetFunc();}
         update_value_from_pad();
     //*************读取当前位置*************//
-        // update_current_position();
+        update_current_position();
     //*************车轮PID控制*************//
         speed_combine();
         if(use_PID){
@@ -546,29 +554,30 @@ void motor_control(){
     analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
 }
 //*************云台指向*************//
-// void mpu_initial(){
-//         Wire.begin();                       // 开启 I2C 总线
-//         mpu6050.begin();                    // 开启mpu6050
-//         mpu6050.calcGyroOffsets(true);      // 计算初始位置
-//         mpu6050.update();
-//         current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
-//         current_angle_theta = mpu6050.getGyroAngleZ();
-//         angle_alpha = mpu6050.getGyroAngleY();
-//         angle_theta = mpu6050.getGyroAngleZ();
-// }
-// void update_current_position() {
-//     mpu6050.update();              // 更新当前位置
-//     if (millis() - timer > 500) {         // 每500ms更新一次当前位置
-//         Serial.print(mpu6050.getGyroAngleX());
-//         Serial.print(" | ");
-//         Serial.print(mpu6050.getGyroAngleY());
-//         Serial.print(" | ");
-//         Serial.println(mpu6050.getGyroAngleZ());
-//         current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
-//         current_angle_theta = mpu6050.getGyroAngleZ();
-//         timer = millis();
-//     }
-// }
+void mpu_initial(){
+        Wire.begin();                       // 开启 I2C 总线
+        mpu6050.begin();                    // 开启mpu6050
+        mpu6050.calcGyroOffsets(true);      // 计算初始位置
+        mpu6050.update();
+        current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+        current_angle_theta = mpu6050.getGyroAngleZ();
+        angle_alpha = mpu6050.getGyroAngleY();
+        angle_theta = mpu6050.getGyroAngleZ();
+}
+void update_current_position() {
+    int timer =0;
+    mpu6050.update();              // 更新当前位置
+    if (millis() - timer > 500) {         // 每500ms更新一次当前位置
+        Serial.print(mpu6050.getGyroAngleX());
+        Serial.print(" | ");
+        Serial.print(mpu6050.getGyroAngleY());
+        Serial.print(" | ");
+        Serial.println(mpu6050.getGyroAngleZ());
+        current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
+        current_angle_theta = mpu6050.getGyroAngleZ();
+        timer = millis();
+    }
+}
 //*************舵机指向*************//
 void servo_initial(){
     myservo.write(angle_alpha_offset);                  //pitch轴回中
