@@ -160,22 +160,13 @@ void setup(){
 
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
-        delay(1000);                //手柄配对延时
-        ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
-        if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
-        else Serial.println("there is an ps2x_error, but doesn't metter!");
+        ps2x_initial();
     //*************初始化位置*************//
-        myservo.write(angle_alpha_offset);  //pitch轴回中
+        mpu_initial();
+        servo_initial();                    //pitch轴回中
         stepper_yaw_initial();              //设置yaw轴步进电机速度
-    //*************传感器读取当前位置*************//
-        Wire.begin();                       // 开启 I2C 总线
-        mpu6050.begin();                    // 开启mpu6050
-        mpu6050.calcGyroOffsets(true);      // 计算初始位置
-        mpu6050.update();
-        current_angle_alpha = mpu6050.getGyroAngleY();  //alpha角度似乎没什么用，舵机控制的好好的
-        current_angle_theta = mpu6050.getGyroAngleZ();
-        angle_alpha = mpu6050.getGyroAngleY();
-        angle_theta = mpu6050.getGyroAngleZ();
+        stepper_shoot_initial();
+
     //*************PID控制*************//
         wheel_1.SetMode(AUTOMATIC);
         wheel_2.SetMode(AUTOMATIC);
@@ -188,37 +179,40 @@ void loop(){
     // last_time = micros();
 
     //*************链接手柄*************//
-    if (ps2x_error == 1){resetFunc();}
-    update_value_from_pad();
+        if (ps2x_error == 1){resetFunc();}
+        update_value_from_pad();
     //*************读取当前位置*************//
-    update_current_position()
+        update_current_position();
     //*************车轮PID控制*************//
-    speed_combine();
-    if(use_PID){
-        wheel_1.Compute();
-        wheel_2.Compute();
-        wheel_3.Compute();
-        wheel_4.Compute();
-        }else{
-        wheel_pwm_without_PID();
-        }
-    motor_control();
+        speed_combine();
+        if(use_PID){
+            wheel_1.Compute();
+            wheel_2.Compute();
+            wheel_3.Compute();
+            wheel_4.Compute();
+            }else{
+            wheel_pwm_without_PID();
+            }
+        motor_control();
     //*************舵机控制*************//
-    servo_control();
+        servo_control();
     //*************云台转向控制*************//
-    stepper_yaw_steps();
+        stepper_yaw_steps();
+    //*************射弹控制*************//
+        friction_wheel_run();
+        stepper_shoot_dadada_run();
     // Serial.print("time: ");
     // now = micros();
     // Serial.println(now-last_time);
     }
 
+//*************手柄更新*************//
 void ps2x_initial(){
     delay(1000);                //手柄配对延时
     ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
     if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
     else Serial.println("there is an ps2x_error, but doesn't metter!");
 }
-//*************手柄更新*************//
 void update_value_from_pad(){
     /* 从遥控手柄读取并更新目标值
      * output：
