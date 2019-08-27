@@ -97,8 +97,9 @@
     volatile bool moveClockwise = true;
     const float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
     float step_theta = 0;                       //用作储存中间变量,不用改
-    int step_each_time = 4096/64;               //stepper_yaw每次改变的步数，用于控制theta的精度
+    int step_each_time = 2;               //stepper_yaw每次改变的步数，用于控制theta的精度
     int   speedup_ratio = 5;                    //yaw电机轴速度和云台真实轴速度的比值，不是加速比
+    float angle_per_step = 5.625;
 
     volatile float step_alpha = 0;              //用作储存中间变量,不用改
     float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改
@@ -185,7 +186,7 @@ void setup(){
         wheel_3.SetMode(AUTOMATIC);
         wheel_4.SetMode(AUTOMATIC);
     }
-void loop(){
+void loop(){ 
     // int last_time;
     // int now;
     // last_time = micros();
@@ -193,7 +194,7 @@ void loop(){
         if (ps2x_error == 1){resetFunc();}
         update_value_from_pad();
     //*************读取当前位置*************//
-        update_current_position();
+        // update_current_position();
     //*************车轮PID控制*************//
         speed_combine();
         if(use_PID){
@@ -208,7 +209,7 @@ void loop(){
     //*************舵机控制*************//
         servo_control();
     //*************云台转向控制*************//
-        stepper_yaw_steps();
+        stepper_yaw_steps_openloop();
     //*************射弹控制*************//
         friction_wheel_run();
         stepper_shoot_dadada_run();
@@ -349,8 +350,8 @@ void update_value_from_pad(){
         }
         if (ps2x.Button(PSB_R1)){
             shoot_dadada = true;
-            Serial.print("shoot_dadada: ");
-            Serial.println(shoot_dadada);
+            // Serial.print("shoot_dadada: ");
+            // Serial.println(shoot_dadada);
         }
     delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
 }
@@ -568,13 +569,15 @@ void update_current_position() {
     int timer =0;
     mpu6050.update();              // 更新当前位置
     if (millis() - timer > 500) {         // 每500ms更新一次当前位置
-        Serial.print(mpu6050.getGyroAngleX());
-        Serial.print(" | ");
-        Serial.print(mpu6050.getGyroAngleY());
-        Serial.print(" | ");
-        Serial.println(mpu6050.getGyroAngleZ());
+        // Serial.print(mpu6050.getGyroAngleX());
+        // Serial.print(" | ");
+        // Serial.print(mpu6050.getGyroAngleY());
+        // Serial.print(" | ");
+        // Serial.println(mpu6050.getGyroAngleZ());
         current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
         current_angle_theta = mpu6050.getGyroAngleZ();
+        Serial.print("current_angle_theta: ");
+        Serial.println(mpu6050.getGyroAngleZ());
         timer = millis();
     }
 }
@@ -606,27 +609,45 @@ void stepper_yaw_steps(){//这样一定能转到想转的位置,但是每次更�
     }
     stepper_yaw.run();
 }
+void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是每次更新几步是个问题
+    if (int(angle_theta - current_angle_theta) > 1){//化成int，防止两个float相减不为0
+        if(angle_theta - current_angle_theta > 0){moveClockwise = true;}        //FIXME:不知道方向对不对，可能还大于小于号
+        else if(angle_theta - current_angle_theta < 0){moveClockwise = false;}
+        stepper_yaw.step(moveClockwise);//讲道理这里不用ratio也可以
+        current_angle_alpha += angle_per_step * speedup_ratio;
+        stepper_yaw.run();
+        Serial.print("current & target: ");
+        Serial.print(current_angle_theta);
+        Serial.println(angle_theta);
+    }else{
+        stepper_yaw.stop();
+    }
+}
 //*************射弹控制*************//
 void stepper_shoot_initial(){
     stepper_shoot.setRpm(shoot_speed);
     stepper_shoot.stop();
 }
 void stepper_shoot_dadada_run(){
-    if(friction_wheel_on || shoot_dadada){
+    if(friction_wheel_on && shoot_dadada){
         if(stepper_shoot.getStepsLeft()==0){
+            Serial.println("shoot!!!");
             stepper_shoot.newMoveDegrees(true,30);
             stepper_shoot.run();
         }else{
             stepper_shoot.run();
         }
     }else{
+        Serial.println("no shoot");
         stepper_shoot.stop();
     }
 }
 void friction_wheel_run(){
     if(friction_wheel_on){
         digitalWrite(FRICTION_WHEEL,HIGH);
+        Serial.println("friction_wheel: on");
     }else{
         digitalWrite(FRICTION_WHEEL,LOW);
+        Serial.println("friction_wheel: off");
     }
 }
