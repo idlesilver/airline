@@ -117,6 +117,7 @@
     
 
 //*************新建实例，初始化实例*************//
+    Thread readPad = Thread();
     PS2X ps2x; // create PS2 Controller Class
         byte vibrate = 0;
         int ps2x_error = 0;
@@ -166,16 +167,10 @@ void setup(){
         ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
         if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
         else Serial.println("there is an ps2x_error, but doesn't metter!");
+        readPad.onRun(update_value_from_pad);
+        readPad.setInterval(50);
     //*************初始化位置*************//
-        // Wire.begin();                       // 开启 I2C 总线
-        // mpu6050.begin();                    // 开启mpu6050
-        // mpu6050.calcGyroOffsets(true);      // 计算初始位置
-        // mpu6050.update();
-        // current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
-        // current_angle_theta = mpu6050.getGyroAngleZ();
-        // angle_alpha = mpu6050.getGyroAngleY();
-        // angle_theta = mpu6050.getGyroAngleZ();
-        mpu_initial();
+        // mpu_initial();
         servo_initial();                    //pitch轴回中
         stepper_yaw_initial();              //设置yaw轴步进电机速度
         stepper_shoot_initial();
@@ -192,7 +187,9 @@ void loop(){
     // last_time = micros();
     //*************链接手柄*************//
         if (ps2x_error == 1){resetFunc();}
-        update_value_from_pad();
+        if(readPad.shouldRun())
+            readPad.run();
+        // update_value_from_pad();
     //*************读取当前位置*************//
         // update_current_position();
     //*************车轮PID控制*************//
@@ -209,7 +206,7 @@ void loop(){
     //*************舵机控制*************//
         servo_control();
     //*************云台转向控制*************//
-        stepper_yaw_steps_openloop();
+        stepper_yaw_steps();
     //*************射弹控制*************//
         friction_wheel_run();
         stepper_shoot_dadada_run_no_stop();
@@ -580,7 +577,7 @@ void update_current_position() {
         // Serial.println(mpu6050.getGyroAngleZ());
         current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
         current_angle_theta = mpu6050.getGyroAngleZ();
-        Serial.print("current_angle_theta: ");
+        // Serial.print("current_angle_theta: ");
         Serial.println(mpu6050.getGyroAngleZ());
         timer = millis();
     }
@@ -624,8 +621,8 @@ void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是�
             moveClockwise = false;
             signal = -1;
             }
-        stepper_yaw.step(moveClockwise);//讲道理这里不用ratio也可以
-        current_angle_theta += signal * angle_per_step * speedup_ratio;
+        stepper_yaw.newMoveDegrees(moveClockwise,30);//讲道理这里不用ratio也可以
+        // current_angle_theta += signal * angle_per_step * speedup_ratio;
         stepper_yaw.run();
         Serial.print("current & target: ");
         Serial.print(current_angle_theta);
@@ -665,15 +662,19 @@ void stepper_shoot_dadada_run_no_stop(){
             stepper_shoot.run();
         }else{
             Serial.println("-------peace------");
+            stepper_shoot.stop();
         }
     }
 }
 void friction_wheel_run(){
     if(friction_wheel_on){
         digitalWrite(FRICTION_WHEEL,HIGH);
-        Serial.println("friction_wheel: on");
+        // Serial.println("friction_wheel: on");
     }else{
         digitalWrite(FRICTION_WHEEL,LOW);
-        Serial.println("friction_wheel: off");
+        // Serial.println("friction_wheel: off");
     }
+}
+void sb_motor_dadada(){
+
 }
