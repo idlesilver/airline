@@ -30,6 +30,10 @@
     #define WHEEL_PWM_2 3
     #define WHEEL_PWM_3 4
     #define WHEEL_PWM_4 5
+    #define SB_PWM_YAW  6
+    #define SB_PWM_SHOOT 7
+
+    #define SERVO_PIN 8
 
     #define WHEEL_SPEED_READ_1 A0
     #define WHEEL_SPEED_READ_2 A1
@@ -45,7 +49,21 @@
     #define WHEEL_IN1_4 28
     #define WHEEL_IN2_4 29
 
-    #define SERVO_PIN 53
+    #define STEPPER_YAW_1 30
+    #define STEPPER_YAW_2 32
+    #define STEPPER_YAW_3 34
+    #define STEPPER_YAW_4 36
+    #define STEPPER_SHOOT_1 31
+    #define STEPPER_SHOOT_2 33
+    #define STEPPER_SHOOT_3 35
+    #define STEPPER_SHOOT_4 37
+
+    #define SB_YAW_IN1 38
+    #define SB_YAW_IN2 39
+    #define SB_SHOOT_IN1 40
+    #define SB_SHOOT_IN2 41
+
+    #define FRICTION_WHEEL 50
     
     #define use_PID false
 
@@ -76,34 +94,46 @@
 
   //云台部分
     volatile float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
-    volatile float angle_alpha = 0;             //FIXME:舵机启动时的水平位置，记得改
-    volatile bool shoot_once = 0;               
-    volatile bool shoot_dadada = 0;
+    volatile float angle_alpha = 0;             //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
     volatile int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
     volatile int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
     float current_angle_theta = 0;              //由传感器测得的当前角度值
     float current_angle_alpha = 0;
 
-    const float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
-    float step_theta = 0;                       //用作储存中间变量,不用改
-    int   speedup_ratio = 5;                    //云台齿轮组加速比
+    volatile bool   moveClockwise = true;
+    const float     angle_theta_change_unit = 1.0;  //云台水平变化的角度，记得改
+    float   step_theta = 0;                     //用作储存中间变量,不用改
+    int     step_each_time = 2;                 //stepper_yaw每次改变的步数，用于控制theta的精度
+    int     speedup_ratio = 2;                  //yaw电机轴速度和云台真实轴速度的比值，不是加速比
+    float   angle_per_step = 5.625/8;
+    int     sb_yaw_speed = 255;
 
-    volatile float step_alpha = 0;              //用作储存中间变量,不用改
-    float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改
-    const float angle_alpha_max = 30;                 //FIXME: 舵机的俯仰角限制范围，记得改
-    const float angle_alpha_min = -30;
+    float angle_alpha_change_unit = 0.5;        //云台仰角每次检测变化的角度，记得改
+    volatile float  step_alpha = 0;             //用作储存中间变量,不用改
+    const float     angle_alpha_offset = 90;
+    const float     angle_alpha_max = 30;                 //就是中立位正负的角度，调整
+    const float     angle_alpha_min = -30;
+
+    volatile bool   shoot_once = false;         //不要once了       
+    volatile bool   shoot_dadada = false;
+    volatile bool   friction_wheel_on = false;  //摩擦轮转动标志
+    const int       shoot_speed = 20;           //供弹步进电机转速
+    const int       sb_shoot_speed = 200;       //供弹智障电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
-    
-
 //*************新建实例，初始化实例*************//
+    Thread readPad = Thread();
+    Thread updatePosition = Thread();
     PS2X ps2x; // create PS2 Controller Class
         byte vibrate = 0;
         int ps2x_error = 0;
         void (*resetFunc)(void) = 0;
     Servo myservo;
+    MPU6050 mpu6050(Wire);  // 新建一个mpu6050实例
+    CheapStepper stepper_yaw (STEPPER_YAW_1,STEPPER_YAW_2,STEPPER_YAW_3,STEPPER_YAW_4);  
+    CheapStepper stepper_shoot (STEPPER_SHOOT_1,STEPPER_SHOOT_2,STEPPER_SHOOT_3,STEPPER_SHOOT_4);  
     PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel_1, Ki_wheel_1, Kd_wheel_1, DIRECT);
     PID wheel_2(&wheel_current_speed_2, &wheel_pwm_2, &wheel_speed_2, Kp_wheel_2, Ki_wheel_2, Kd_wheel_2, DIRECT);
     PID wheel_3(&wheel_current_speed_3, &wheel_pwm_3, &wheel_speed_3, Kp_wheel_3, Ki_wheel_3, Kd_wheel_3, DIRECT);
@@ -111,81 +141,107 @@
 //*************setup,loop主程序*************//
 void setup(){
     //*************设置针脚模式*************//
-    pinMode(PS2_DAT,OUTPUT);
-    pinMode(PS2_CMD,OUTPUT);
-    pinMode(PS2_SEL,OUTPUT);
-    pinMode(PS2_CLK,OUTPUT);
+        pinMode(PS2_DAT,OUTPUT);
+        pinMode(PS2_CMD,OUTPUT);
+        pinMode(PS2_SEL,OUTPUT);
+        pinMode(PS2_CLK,OUTPUT);
 
-    pinMode(WHEEL_PWM_1,OUTPUT);
-    pinMode(WHEEL_PWM_2,OUTPUT);
-    pinMode(WHEEL_PWM_3,OUTPUT);
-    pinMode(WHEEL_PWM_4,OUTPUT);
+        pinMode(WHEEL_PWM_1,OUTPUT);
+        pinMode(WHEEL_PWM_2,OUTPUT);
+        pinMode(WHEEL_PWM_3,OUTPUT);
+        pinMode(WHEEL_PWM_4,OUTPUT);
+        pinMode(SB_PWM_YAW,OUTPUT);
+        pinMode(SB_PWM_SHOOT,OUTPUT);
 
-    pinMode(WHEEL_IN1_1,OUTPUT);
-    pinMode(WHEEL_IN2_1,OUTPUT);
-    pinMode(WHEEL_IN1_2,OUTPUT);
-    pinMode(WHEEL_IN2_2,OUTPUT);
-    pinMode(WHEEL_IN1_3,OUTPUT);
-    pinMode(WHEEL_IN2_3,OUTPUT);
-    pinMode(WHEEL_IN1_4,OUTPUT);
-    pinMode(WHEEL_IN2_4,OUTPUT);
+        pinMode(WHEEL_IN1_1,OUTPUT);
+        pinMode(WHEEL_IN2_1,OUTPUT);
+        pinMode(WHEEL_IN1_2,OUTPUT);
+        pinMode(WHEEL_IN2_2,OUTPUT);
+        pinMode(WHEEL_IN1_3,OUTPUT);
+        pinMode(WHEEL_IN2_3,OUTPUT);
+        pinMode(WHEEL_IN1_4,OUTPUT);
+        pinMode(WHEEL_IN2_4,OUTPUT);
+        pinMode(SB_YAW_IN1,OUTPUT);
+        pinMode(SB_YAW_IN2,OUTPUT);
+        pinMode(SB_SHOOT_IN1,OUTPUT);
+        pinMode(SB_SHOOT_IN2,OUTPUT);
 
-    pinMode(WHEEL_SPEED_READ_1,INPUT); //TODO:还没有设置读取函数，现在只有脚
-    pinMode(WHEEL_SPEED_READ_1,INPUT);
-    pinMode(WHEEL_SPEED_READ_1,INPUT);
-    pinMode(WHEEL_SPEED_READ_1,INPUT);
+        pinMode(FRICTION_WHEEL,OUTPUT);
+
+        pinMode(WHEEL_SPEED_READ_1,INPUT); //TODO:还没有设置读取函数，现在只有脚
+        pinMode(WHEEL_SPEED_READ_1,INPUT);
+        pinMode(WHEEL_SPEED_READ_1,INPUT);
+        pinMode(WHEEL_SPEED_READ_1,INPUT);
+
+        //servo和stepper在类中有pinmode初始化
 
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
-        delay(1000);                //手柄配对延时
-        ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
-        if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
-        else Serial.println("there is an ps2x_error, but doesn't metter!");
+        // delay(500);                //手柄配对延时
+        ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+        // ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+        // if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
+        // else Serial.println("there is an ps2x_error, but doesn't metter!");
+        readPad.onRun(update_value_from_pad);
+        readPad.setInterval(50);
     //*************初始化位置*************//
-        myservo.write(90);                  //pitch轴回中
-
-    //*************传感器读取当前位置*************//
-        Wire.begin();                       // 开启 I2C 总线
-        mpu6050.begin();                    // 开启mpu6050
-        mpu6050.calcGyroOffsets(true);      // 计算初始位置
-        mpu6050.update();
-        current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
-        current_angle_theta = mpu6050.getGyroAngleZ();
-        angle_alpha = mpu6050.getGyroAngleY();
-        angle_theta = mpu6050.getGyroAngleZ();
-
+        //updatePosition.onRun(update_current_position);
+        //updatePosition.setInterval(500);
+        //mpu_initial();
+        servo_initial();                    //pitch轴回中
+        // stepper_yaw_initial();              //设置yaw轴步进电机速度
+        // stepper_shoot_initial();
+        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
+        analogWrite(SB_PWM_YAW,sb_yaw_speed);
     //*************PID控制*************//
         wheel_1.SetMode(AUTOMATIC);
         wheel_2.SetMode(AUTOMATIC);
         wheel_3.SetMode(AUTOMATIC);
         wheel_4.SetMode(AUTOMATIC);
     }
-void loop(){
+void loop(){ 
     // int last_time;
     // int now;
     // last_time = micros();
     //*************链接手柄*************//
-    if (ps2x_error == 1){resetFunc();}
-    update_value_from_pad();
+        if (ps2x_error == 1){resetFunc();}
+        if(readPad.shouldRun())
+            readPad.run();
+
+        // update_value_from_pad();
     //*************读取当前位置*************//
-    update_current_position()
+        if(updatePosition.shouldRun())
+            updatePosition.run();
     //*************车轮PID控制*************//
-    speed_combine();
-    if(use_PID){
-        wheel_1.Compute();
-        wheel_2.Compute();
-        wheel_3.Compute();
-        wheel_4.Compute();
-        }else{
-        wheel_pwm_without_PID();
-        }
-    motor_control();
+        speed_combine();
+        if(use_PID){
+            wheel_1.Compute();
+            wheel_2.Compute();
+            wheel_3.Compute();
+            wheel_4.Compute();
+            }else{
+            wheel_pwm_without_PID();
+            }
+        motor_control();
     //*************舵机控制*************//
+        servo_control();
+    //*************云台转向控制*************//
+        sb_yaw_openloop();
+    //*************射弹控制*************//
+        friction_wheel_run();
+        sb_shoot_dadada();
     // Serial.print("time: ");
     // now = micros();
     // Serial.println(now-last_time);
     }
 
+//*************手柄更新*************//
+void ps2x_initial(){
+    delay(1000);                //手柄配对延时
+    ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+    if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
+    else Serial.println("there is an ps2x_error, but doesn't metter!");
+}
 void update_value_from_pad(){
     /* 从遥控手柄读取并更新目标值
      * output：
@@ -252,7 +308,7 @@ void update_value_from_pad(){
         }
     //按下circle键，改变front，即小车正方向
         if (ps2x.ButtonPressed(PSB_CIRCLE))
-        {   //TODO:这里可能需要一个消抖。。。
+        {   //TODO:ButtonPressed本身就有消抖
             if (millis()-last_front_change >= front_change_delay){
                 front = (front + 1) % 4;
                 last_front_change = millis();
@@ -304,17 +360,20 @@ void update_value_from_pad(){
                 Serial.println(angle_theta);
             }
     //射击模块
-        if (ps2x.Button(PSB_L1)){
-            shoot_once = true;
-            Serial.print("shoot once: ");
-            Serial.println(shoot_once);
-        }else if (ps2x.Button(PSB_R1)){
-            shoot_dadada = true;
-            Serial.print("shoot_dadada: ");
-            Serial.println(shoot_dadada);
+        if (ps2x.ButtonPressed(PSB_L1)){
+            friction_wheel_on = !friction_wheel_on;
+            Serial.print("friction_wheel_on is: ");
+            Serial.println(friction_wheel_on);
         }
-    delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
+        if (ps2x.Button(PSB_R1)){
+            shoot_dadada = true;
+            // Serial.print("shoot_dadada: ");
+            // Serial.println(shoot_dadada);
+        }else{
+            shoot_dadada = false;
+        }
 }
+//*************车轮控制*************//
 void speed_combine(){
     /* 把speed_x，y和front变成四个轮子的speed
      * 对应的数值正负表示旋转方向
@@ -513,19 +572,155 @@ void motor_control(){
     analogWrite(WHEEL_PWM_3,abs(wheel_pwm_3));
     analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
 }
-inline void update_current_position() {
+//*************云台指向*************//
+void mpu_initial(){
+    /* 初始化mpu */
+    Wire.begin();                       // 开启 I2C 总线
+    mpu6050.begin();                    // 开启mpu6050
+    mpu6050.calcGyroOffsets(true);      // 计算初始位置
+    mpu6050.update();
+    current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+    current_angle_theta = mpu6050.getGyroAngleZ();
+    angle_alpha = mpu6050.getGyroAngleY();
+    angle_theta = mpu6050.getGyroAngleZ();
+}
+void update_current_position() {
+    /* 更新当前位置 */
     mpu6050.update();              // 更新当前位置
-    if (millis() - timer > 500) {         // 每500ms更新一次当前位置
-        Serial.print(mpu6050.getGyroAngleX());
-        Serial.print(" | ");
-        Serial.print(mpu6050.getGyroAngleY());
-        Serial.print(" | ");
-        Serial.println(mpu6050.getGyroAngleZ());
-        current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
-        current_angle_theta = mpu6050.getGyroAngleZ();
-        timer = millis();
-    }
+    Serial.print(mpu6050.getGyroAngleX());
+    Serial.print(" | ");
+    Serial.print(mpu6050.getGyroAngleY());
+    Serial.print(" | ");
+    Serial.println(mpu6050.getGyroAngleZ());
+    current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
+    current_angle_theta = mpu6050.getGyroAngleZ();
+    timer = millis();
+}
+//*************舵机指向*************//
+void servo_initial(){
+    myservo.attach(SERVO_PIN);
+    myservo.write(angle_alpha_offset);                  //pitch轴回中
 }
 void servo_control(){
-    myservo.write(angle_alpha);
+    myservo.write(angle_alpha+angle_alpha_offset);
+}
+//*************云台步进电机*************//
+void stepper_yaw_initial(){
+    stepper_yaw.setRpm(20);
+    stepper_yaw.stop();
+}
+void stepper_yaw_with_angle(){//不知道库里的函数能不能直接用，这边加速齿轮会比较难算
+    stepper_yaw.run();
+    if(angle_theta - current_angle_theta > 0){moveClockwise = true;}
+    else if(angle_theta - current_angle_theta <0){moveClockwise = false;}
+    stepper_yaw.newMoveToDegree(moveClockwise,angle_theta);
+}
+void stepper_yaw_steps(){//这样一定能转到想转的位置,但是每次更新几步是个问题
+    if (int(angle_theta - current_angle_theta) > 1){//化成int，防止两个float相减不为0
+        if(angle_theta - current_angle_theta > 0){moveClockwise = true;}        //FIXME:不知道方向对不对，可能还大于小于号
+        else if(angle_theta - current_angle_theta < 0){moveClockwise = false;}
+        stepper_yaw.newMoveDegrees(moveClockwise,int(angle_theta - current_angle_theta)*speedup_ratio);//讲道理这里不用ratio也可以
+    }else{
+        stepper_yaw.stop();
+    }
+    stepper_yaw.run();
+}
+void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是每次更新几步是个问题
+    int signal = 0;
+    if (int(abs(angle_theta - current_angle_theta)) > 1){//化成int，防止两个float相减不为0
+        if(angle_theta - current_angle_theta > 0){
+            moveClockwise = true;           //FIXME:不知道方向对不对，可能还大于小于号
+            signal = 1;
+        }        
+        else if(angle_theta - current_angle_theta < 0){
+            moveClockwise = false;
+            signal = -1;
+            }
+        stepper_yaw.newMoveDegrees(moveClockwise,30);//讲道理这里不用ratio也可以
+        current_angle_theta += signal * angle_per_step * speedup_ratio;
+        stepper_yaw.run();
+        Serial.print("current & target: ");
+        Serial.print(current_angle_theta);
+        Serial.print(" | ");
+        Serial.println(angle_theta);
+    }else{
+        stepper_yaw.stop();
+    }
+}
+void sb_yaw_openloop(){
+    int signal = 0;
+    if (int(abs(angle_theta - current_angle_theta)) > 1){//化成int，防止两个float相减不为0
+        if(angle_theta - current_angle_theta > 0){
+            digitalWrite(SB_YAW_IN1,HIGH);
+            digitalWrite(SB_YAW_IN2,LOW);
+            signal = 1;
+        }        
+        else if(angle_theta - current_angle_theta < 0){
+            digitalWrite(SB_YAW_IN1,LOW);
+            digitalWrite(SB_YAW_IN2,HIGH);
+            signal = -1;
+        }
+        current_angle_theta += signal * angle_per_step * speedup_ratio;
+        Serial.print("current & target: ");
+        Serial.print(current_angle_theta);
+        Serial.print(" | ");
+        Serial.println(angle_theta);
+    }else{
+        digitalWrite(SB_YAW_IN1,LOW);
+        digitalWrite(SB_YAW_IN2,LOW);
+    }
+}
+//*************射弹控制*************//
+void stepper_shoot_initial(){
+    stepper_shoot.setRpm(shoot_speed);
+    stepper_shoot.stop();
+}
+void stepper_shoot_dadada_run(){
+    if(friction_wheel_on && shoot_dadada){
+        if(stepper_shoot.getStepsLeft()==0){
+            Serial.println("shoot!!!");
+            stepper_shoot.newMoveDegrees(true,30);
+            stepper_shoot.run();
+        }else{
+            stepper_shoot.run();
+        }
+    }else{
+        Serial.println("no shoot");
+        stepper_shoot.stop();
+    }
+}
+void stepper_shoot_dadada_run_no_stop(){
+    if(friction_wheel_on){
+        if(shoot_dadada && stepper_shoot.getStepsLeft()==0){
+            Serial.println("new shoot!!!");
+            stepper_shoot.newMoveDegrees(true,30);
+            stepper_shoot.run();
+        }else if(stepper_shoot.getStepsLeft()!=0){
+            Serial.println("dadadadadadadadada");
+            stepper_shoot.run();
+        }else{
+            Serial.println("-------peace------");
+            stepper_shoot.stop();
+        }
+    }else{
+        stepper_shoot.stop();
+    }
+}
+void sb_shoot_dadada(){
+    if(friction_wheel_on && shoot_dadada){
+        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
+        digitalWrite(SB_SHOOT_IN1,HIGH);
+    }else{
+        analogWrite(SB_PWM_SHOOT,0);
+        digitalWrite(SB_SHOOT_IN1,LOW);
+    }
+}
+void friction_wheel_run(){
+    if(friction_wheel_on){
+        digitalWrite(FRICTION_WHEEL,HIGH);
+        // Serial.println("friction_wheel: on");
+    }else{
+        digitalWrite(FRICTION_WHEEL,LOW);
+        // Serial.println("friction_wheel: off");
+    }
 }
