@@ -1,15 +1,31 @@
-#define servopin 9
-#define pos_time 2000
+/* Sweep
+ by BARRAGAN <http://barraganstudio.com>
+ This example code is in the public domain.
 
-void setup(){
-    pinMode(servopin,OUTPUT);
-    Serial.begin(9600);
+ modified 8 Nov 2013
+ by Scott Fitzgerald
+ http://www.arduino.cc/en/Tutorial/Sweep
+*/
+
+#include <Servo.h>
+
+Servo myservo;  // create servo object to control a servo
+// twelve servo objects can be created on most boards
+
+int pos = 0;    // variable to store the servo position
+
+void setup() {
+  myservo.attach(9,0,180);  // attaches the servo on pin 9 to the servo object
 }
 
-void loop(){
-    digitalWrite(servopin,HIGH);
-    delayMicroseconds(pos_time);
-    digitalWrite(servopin,LOW);
-    delayMicroseconds(20000-pos_time);
-    Serial.println("da");
+void loop() {
+  for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(20);                       // waits 15ms for the servo to reach the position
+  }
+  for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(20);                       // waits 15ms for the servo to reach the position
+  }
 }

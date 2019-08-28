@@ -179,9 +179,10 @@ void setup(){
     Serial.begin(9600);       //测试用
     //*************链接手柄*************//
         // delay(500);                //手柄配对延时
-        ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
-        if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
-        else Serial.println("there is an ps2x_error, but doesn't metter!");
+        ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+        // ps2x_error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+        // if (ps2x_error == 0) Serial.print("Found Controller, configured successful ");
+        // else Serial.println("there is an ps2x_error, but doesn't metter!");
         readPad.onRun(update_value_from_pad);
         readPad.setInterval(50);
     //*************初始化位置*************//
@@ -600,6 +601,7 @@ void update_current_position() {
 }
 //*************舵机指向*************//
 void servo_initial(){
+    myservo.attach(SERVO_PIN);
     myservo.write(angle_alpha_offset);                  //pitch轴回中
 }
 void servo_control(){
