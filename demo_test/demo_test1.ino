@@ -123,10 +123,9 @@
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
-    
-
 //*************新建实例，初始化实例*************//
     Thread readPad = Thread();
+    Thread updatePosition = Thread();
     PS2X ps2x; // create PS2 Controller Class
         byte vibrate = 0;
         int ps2x_error = 0;
@@ -186,7 +185,9 @@ void setup(){
         readPad.onRun(update_value_from_pad);
         readPad.setInterval(50);
     //*************初始化位置*************//
-        // mpu_initial();
+        //updatePosition.onRun(update_current_position);
+        //updatePosition.setInterval(500);
+        //mpu_initial();
         servo_initial();                    //pitch轴回中
         // stepper_yaw_initial();              //设置yaw轴步进电机速度
         // stepper_shoot_initial();
@@ -206,9 +207,11 @@ void loop(){
         if (ps2x_error == 1){resetFunc();}
         if(readPad.shouldRun())
             readPad.run();
+
         // update_value_from_pad();
     //*************读取当前位置*************//
-        // update_current_position();
+        if(updatePosition.shouldRun())
+            updatePosition.run();
     //*************车轮PID控制*************//
         speed_combine();
         if(use_PID){
@@ -369,7 +372,6 @@ void update_value_from_pad(){
         }else{
             shoot_dadada = false;
         }
-    delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
 }
 //*************车轮控制*************//
 void speed_combine(){
@@ -584,20 +586,15 @@ void mpu_initial(){
 }
 void update_current_position() {
     /* 更新当前位置 */
-    int timer =0;
     mpu6050.update();              // 更新当前位置
-    if (millis() - timer > 500) {         // 每500ms更新一次当前位置
-        // Serial.print(mpu6050.getGyroAngleX());
-        // Serial.print(" | ");
-        // Serial.print(mpu6050.getGyroAngleY());
-        // Serial.print(" | ");
-        // Serial.println(mpu6050.getGyroAngleZ());
-        current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
-        current_angle_theta = mpu6050.getGyroAngleZ();
-        // Serial.print("current_angle_theta: ");
-        Serial.println(mpu6050.getGyroAngleZ());
-        timer = millis();
-    }
+    Serial.print(mpu6050.getGyroAngleX());
+    Serial.print(" | ");
+    Serial.print(mpu6050.getGyroAngleY());
+    Serial.print(" | ");
+    Serial.println(mpu6050.getGyroAngleZ());
+    current_angle_alpha = mpu6050.getGyroAngleY();  //这个轴好像都不用
+    current_angle_theta = mpu6050.getGyroAngleZ();
+    timer = millis();
 }
 //*************舵机指向*************//
 void servo_initial(){
