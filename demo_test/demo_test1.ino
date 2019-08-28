@@ -30,6 +30,10 @@
     #define WHEEL_PWM_2 3
     #define WHEEL_PWM_3 4
     #define WHEEL_PWM_4 5
+    #define SB_PWM_YAW  6
+    #define SB_PWM_SHOOT 7
+
+    #define SERVO_PIN 8
 
     #define WHEEL_SPEED_READ_1 A0
     #define WHEEL_SPEED_READ_2 A1
@@ -45,8 +49,6 @@
     #define WHEEL_IN1_4 28
     #define WHEEL_IN2_4 29
 
-    #define SERVO_PIN 53
-
     #define STEPPER_YAW_1 30
     #define STEPPER_YAW_2 32
     #define STEPPER_YAW_3 34
@@ -55,6 +57,11 @@
     #define STEPPER_SHOOT_2 33
     #define STEPPER_SHOOT_3 35
     #define STEPPER_SHOOT_4 37
+
+    #define SB_YAW_IN1 38
+    #define SB_YAW_IN2 39
+    #define SB_SHOOT_IN1 40
+    #define SB_SHOOT_IN2 41
 
     #define FRICTION_WHEEL 50
     
@@ -94,23 +101,25 @@
     float current_angle_theta = 0;              //由传感器测得的当前角度值
     float current_angle_alpha = 0;
 
-    volatile bool moveClockwise = true;
-    const float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
-    float step_theta = 0;                       //用作储存中间变量,不用改
-    int step_each_time = 2;               //stepper_yaw每次改变的步数，用于控制theta的精度
-    int   speedup_ratio = 2;                    //yaw电机轴速度和云台真实轴速度的比值，不是加速比
-    float angle_per_step = 5.625/8;
+    volatile bool   moveClockwise = true;
+    const float     angle_theta_change_unit = 1.0;  //云台水平变化的角度，记得改
+    float   step_theta = 0;                     //用作储存中间变量,不用改
+    int     step_each_time = 2;                 //stepper_yaw每次改变的步数，用于控制theta的精度
+    int     speedup_ratio = 2;                  //yaw电机轴速度和云台真实轴速度的比值，不是加速比
+    float   angle_per_step = 5.625/8;
+    int     sb_yaw_speed = 255;
 
-    volatile float step_alpha = 0;              //用作储存中间变量,不用改
-    float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改
-    const float angle_alpha_offset = 90;
-    const float angle_alpha_max = 30;                 //就是中立位正负的角度，调整
-    const float angle_alpha_min = -30;
+    float angle_alpha_change_unit = 0.5;        //云台仰角每次检测变化的角度，记得改
+    volatile float  step_alpha = 0;             //用作储存中间变量,不用改
+    const float     angle_alpha_offset = 90;
+    const float     angle_alpha_max = 30;                 //就是中立位正负的角度，调整
+    const float     angle_alpha_min = -30;
 
-    volatile bool shoot_once = false;           //不要once了       
-    volatile bool shoot_dadada = false;
-    bool friction_wheel_on = false;              //摩擦轮转动标志
-    const int shoot_speed = 20;                      //供弹步进电机转速
+    volatile bool   shoot_once = false;         //不要once了       
+    volatile bool   shoot_dadada = false;
+    volatile bool   friction_wheel_on = false;  //摩擦轮转动标志
+    const int       shoot_speed = 20;           //供弹步进电机转速
+    const int       sb_shoot_speed = 200;       //供弹智障电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -142,6 +151,8 @@ void setup(){
         pinMode(WHEEL_PWM_2,OUTPUT);
         pinMode(WHEEL_PWM_3,OUTPUT);
         pinMode(WHEEL_PWM_4,OUTPUT);
+        pinMode(SB_PWM_YAW,OUTPUT);
+        pinMode(SB_PWM_SHOOT,OUTPUT);
 
         pinMode(WHEEL_IN1_1,OUTPUT);
         pinMode(WHEEL_IN2_1,OUTPUT);
@@ -151,6 +162,10 @@ void setup(){
         pinMode(WHEEL_IN2_3,OUTPUT);
         pinMode(WHEEL_IN1_4,OUTPUT);
         pinMode(WHEEL_IN2_4,OUTPUT);
+        pinMode(SB_YAW_IN1,OUTPUT);
+        pinMode(SB_YAW_IN2,OUTPUT);
+        pinMode(SB_SHOOT_IN1,OUTPUT);
+        pinMode(SB_SHOOT_IN2,OUTPUT);
 
         pinMode(FRICTION_WHEEL,OUTPUT);
 
@@ -172,9 +187,10 @@ void setup(){
     //*************初始化位置*************//
         // mpu_initial();
         servo_initial();                    //pitch轴回中
-        stepper_yaw_initial();              //设置yaw轴步进电机速度
-        stepper_shoot_initial();
-
+        // stepper_yaw_initial();              //设置yaw轴步进电机速度
+        // stepper_shoot_initial();
+        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
+        analogWrite(SB_PWM_YAW,sb_yaw_speed);
     //*************PID控制*************//
         wheel_1.SetMode(AUTOMATIC);
         wheel_2.SetMode(AUTOMATIC);
@@ -206,10 +222,10 @@ void loop(){
     //*************舵机控制*************//
         servo_control();
     //*************云台转向控制*************//
-        stepper_yaw_steps();
+        sb_yaw_openloop();
     //*************射弹控制*************//
         friction_wheel_run();
-        stepper_shoot_dadada_run_no_stop();
+        sb_shoot_dadada();
     // Serial.print("time: ");
     // now = micros();
     // Serial.println(now-last_time);
@@ -622,7 +638,7 @@ void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是�
             signal = -1;
             }
         stepper_yaw.newMoveDegrees(moveClockwise,30);//讲道理这里不用ratio也可以
-        // current_angle_theta += signal * angle_per_step * speedup_ratio;
+        current_angle_theta += signal * angle_per_step * speedup_ratio;
         stepper_yaw.run();
         Serial.print("current & target: ");
         Serial.print(current_angle_theta);
@@ -630,6 +646,29 @@ void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是�
         Serial.println(angle_theta);
     }else{
         stepper_yaw.stop();
+    }
+}
+void sb_yaw_openloop(){
+    int signal = 0;
+    if (int(abs(angle_theta - current_angle_theta)) > 1){//化成int，防止两个float相减不为0
+        if(angle_theta - current_angle_theta > 0){
+            digitalWrite(SB_YAW_IN1,HIGH);
+            digitalWrite(SB_YAW_IN2,LOW);
+            signal = 1;
+        }        
+        else if(angle_theta - current_angle_theta < 0){
+            digitalWrite(SB_YAW_IN1,LOW);
+            digitalWrite(SB_YAW_IN2,HIGH);
+            signal = -1;
+        }
+        current_angle_theta += signal * angle_per_step * speedup_ratio;
+        Serial.print("current & target: ");
+        Serial.print(current_angle_theta);
+        Serial.print(" | ");
+        Serial.println(angle_theta);
+    }else{
+        digitalWrite(SB_YAW_IN1,LOW);
+        digitalWrite(SB_YAW_IN2,LOW);
     }
 }
 //*************射弹控制*************//
@@ -664,6 +703,17 @@ void stepper_shoot_dadada_run_no_stop(){
             Serial.println("-------peace------");
             stepper_shoot.stop();
         }
+    }else{
+        stepper_shoot.stop();
+    }
+}
+void sb_shoot_dadada(){
+    if(friction_wheel_on && shoot_dadada){
+        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
+        digitalWrite(SB_SHOOT_IN1,HIGH);
+    }else{
+        analogWrite(SB_PWM_SHOOT,0);
+        digitalWrite(SB_SHOOT_IN1,LOW);
     }
 }
 void friction_wheel_run(){
@@ -674,7 +724,4 @@ void friction_wheel_run(){
         digitalWrite(FRICTION_WHEEL,LOW);
         // Serial.println("friction_wheel: off");
     }
-}
-void sb_motor_dadada(){
-
 }
