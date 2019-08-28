@@ -98,8 +98,8 @@
     const float angle_theta_change_unit = 1.0;        //FIXME:云台水平变化的角度，记得改
     float step_theta = 0;                       //用作储存中间变量,不用改
     int step_each_time = 2;               //stepper_yaw每次改变的步数，用于控制theta的精度
-    int   speedup_ratio = 5;                    //yaw电机轴速度和云台真实轴速度的比值，不是加速比
-    float angle_per_step = 5.625;
+    int   speedup_ratio = 2;                    //yaw电机轴速度和云台真实轴速度的比值，不是加速比
+    float angle_per_step = 5.625/8;
 
     volatile float step_alpha = 0;              //用作储存中间变量,不用改
     float angle_alpha_change_unit = 0.5;        //FIXME:云台仰角每次检测变化的角度，记得改
@@ -110,7 +110,7 @@
     volatile bool shoot_once = false;           //不要once了       
     volatile bool shoot_dadada = false;
     bool friction_wheel_on = false;              //摩擦轮转动标志
-    const int shoot_speed = 6;                      //供弹步进电机转速
+    const int shoot_speed = 20;                      //供弹步进电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -212,7 +212,7 @@ void loop(){
         stepper_yaw_steps_openloop();
     //*************射弹控制*************//
         friction_wheel_run();
-        stepper_shoot_dadada_run();
+        stepper_shoot_dadada_run_no_stop();
     // Serial.print("time: ");
     // now = micros();
     // Serial.println(now-last_time);
@@ -352,6 +352,8 @@ void update_value_from_pad(){
             shoot_dadada = true;
             // Serial.print("shoot_dadada: ");
             // Serial.println(shoot_dadada);
+        }else{
+            shoot_dadada = false;
         }
     delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
 }
@@ -556,16 +558,18 @@ void motor_control(){
 }
 //*************云台指向*************//
 void mpu_initial(){
-        Wire.begin();                       // 开启 I2C 总线
-        mpu6050.begin();                    // 开启mpu6050
-        mpu6050.calcGyroOffsets(true);      // 计算初始位置
-        mpu6050.update();
-        current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
-        current_angle_theta = mpu6050.getGyroAngleZ();
-        angle_alpha = mpu6050.getGyroAngleY();
-        angle_theta = mpu6050.getGyroAngleZ();
+    /* 初始化mpu */
+    Wire.begin();                       // 开启 I2C 总线
+    mpu6050.begin();                    // 开启mpu6050
+    mpu6050.calcGyroOffsets(true);      // 计算初始位置
+    mpu6050.update();
+    current_angle_alpha = mpu6050.getGyroAngleY();  //初始化位置
+    current_angle_theta = mpu6050.getGyroAngleZ();
+    angle_alpha = mpu6050.getGyroAngleY();
+    angle_theta = mpu6050.getGyroAngleZ();
 }
 void update_current_position() {
+    /* 更新当前位置 */
     int timer =0;
     mpu6050.update();              // 更新当前位置
     if (millis() - timer > 500) {         // 每500ms更新一次当前位置
@@ -610,14 +614,22 @@ void stepper_yaw_steps(){//这样一定能转到想转的位置,但是每次更�
     stepper_yaw.run();
 }
 void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是每次更新几步是个问题
-    if (int(angle_theta - current_angle_theta) > 1){//化成int，防止两个float相减不为0
-        if(angle_theta - current_angle_theta > 0){moveClockwise = true;}        //FIXME:不知道方向对不对，可能还大于小于号
-        else if(angle_theta - current_angle_theta < 0){moveClockwise = false;}
+    int signal = 0;
+    if (int(abs(angle_theta - current_angle_theta)) > 1){//化成int，防止两个float相减不为0
+        if(angle_theta - current_angle_theta > 0){
+            moveClockwise = true;           //FIXME:不知道方向对不对，可能还大于小于号
+            signal = 1;
+        }        
+        else if(angle_theta - current_angle_theta < 0){
+            moveClockwise = false;
+            signal = -1;
+            }
         stepper_yaw.step(moveClockwise);//讲道理这里不用ratio也可以
-        current_angle_alpha += angle_per_step * speedup_ratio;
+        current_angle_theta += signal * angle_per_step * speedup_ratio;
         stepper_yaw.run();
         Serial.print("current & target: ");
         Serial.print(current_angle_theta);
+        Serial.print(" | ");
         Serial.println(angle_theta);
     }else{
         stepper_yaw.stop();
@@ -640,6 +652,20 @@ void stepper_shoot_dadada_run(){
     }else{
         Serial.println("no shoot");
         stepper_shoot.stop();
+    }
+}
+void stepper_shoot_dadada_run_no_stop(){
+    if(friction_wheel_on){
+        if(shoot_dadada && stepper_shoot.getStepsLeft()==0){
+            Serial.println("new shoot!!!");
+            stepper_shoot.newMoveDegrees(true,30);
+            stepper_shoot.run();
+        }else if(stepper_shoot.getStepsLeft()!=0){
+            Serial.println("dadadadadadadadada");
+            stepper_shoot.run();
+        }else{
+            Serial.println("-------peace------");
+        }
     }
 }
 void friction_wheel_run(){
