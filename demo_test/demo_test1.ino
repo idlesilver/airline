@@ -501,26 +501,22 @@ void wheel_pwm_without_PID(){
      * output:
      *  wheel_pwm_[1-4]
      */
-    if(wheel_pwm_1 > wheel_speed_1){
-        wheel_pwm_1 -= wheel_pwm_change_unit;
-    }else if(wheel_pwm_1 < wheel_speed_1){
-        wheel_pwm_1 += wheel_pwm_change_unit;
-    }
-    if(wheel_pwm_2 > wheel_speed_2){
-        wheel_pwm_2 -= wheel_pwm_change_unit;
-    }else if(wheel_pwm_2 < wheel_speed_2){
-        wheel_pwm_2 += wheel_pwm_change_unit;
-    }
-    if(wheel_pwm_3 > wheel_speed_3){
-        wheel_pwm_3 -= wheel_pwm_change_unit;
-    }else if(wheel_pwm_3 < wheel_speed_3){
-        wheel_pwm_3 += wheel_pwm_change_unit;
-    }
-    if(wheel_pwm_4 > wheel_speed_4){
-        wheel_pwm_4 -= wheel_pwm_change_unit;
-    }else if(wheel_pwm_4 < wheel_speed_4){
-        wheel_pwm_4 += wheel_pwm_change_unit;
-    }
+    if(wheel_speed_1 = 0){wheel_pwm_1 =0;}
+    else if(wheel_pwm_1 > wheel_speed_1){wheel_pwm_1 -= wheel_pwm_change_unit;}
+    else if(wheel_pwm_1 < wheel_speed_1){wheel_pwm_1 += wheel_pwm_change_unit;}
+
+    if(wheel_speed_2 = 0){wheel_pwm_2 =0;}
+    else if(wheel_pwm_2 > wheel_speed_2){wheel_pwm_2 -= wheel_pwm_change_unit;}
+    else if(wheel_pwm_2 < wheel_speed_2){wheel_pwm_2 += wheel_pwm_change_unit;}
+
+    if(wheel_speed_3 = 0){wheel_pwm_3 =0;}
+    else if(wheel_pwm_3 > wheel_speed_3){wheel_pwm_3 -= wheel_pwm_change_unit;}
+    else if(wheel_pwm_3 < wheel_speed_3){wheel_pwm_3 += wheel_pwm_change_unit;}
+
+    if(wheel_speed_4 = 0){wheel_pwm_4 =0;}
+    else if(wheel_pwm_4 > wheel_speed_4){wheel_pwm_4 -= wheel_pwm_change_unit;}
+    else if(wheel_pwm_4 < wheel_speed_4){wheel_pwm_4 += wheel_pwm_change_unit;}
+    
     //测试用
     if (ps2x.Button(PSB_L2)){
         Serial.print("wheel speed: ");
