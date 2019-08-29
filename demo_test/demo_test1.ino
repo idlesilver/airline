@@ -89,35 +89,34 @@
     double Kp_wheel=0, Ki_wheel=0, Kd_wheel=0;
     long  last_front_change = 0;                        //cache
     const int rotating_speed = 255;
-    const int  front_change_delay = 300;//ms            //切换方向的消抖延时
+    const int front_change_delay = 300;//ms            //切换方向的消抖延时
 
   //云台部分
-    volatile float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
-    volatile float angle_alpha = 0;             //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
-    volatile int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
-    volatile int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
+    float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
+    float angle_alpha = 0;             //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
+    int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
+    int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
     float current_angle_theta = 0;              //由传感器测得的当前角度值
     float current_angle_alpha = 0;
 
-    volatile bool   moveClockwise = true;
-    const float     angle_theta_change_unit = 1.0;  //云台水平变化的角度，记得改
-    float   step_theta = 0;                     //用作储存中间变量,不用改
-    int     step_each_time = 2;                 //stepper_yaw每次改变的步数，用于控制theta的精度
-    int     speedup_ratio = 2;                  //yaw电机轴速度和云台真实轴速度的比值，不是加速比
-    float   angle_per_step = 5.625/8;
-    int     sb_yaw_speed = 255;
+    bool   moveClockwise = true;
+    float   step_theta = 0;                         //用作储存中间变量,不用改
+    const float   angle_theta_change_unit = 1;    //云台水平变化的角度，记得改
+    const int     step_each_time = 2;               //stepper_yaw每次改变的步数，用于控制theta的精度
+    const int     speedup_ratio = 2;                //yaw电机轴速度和云台真实轴速度的比值，不是加速比
+    const float   angle_per_step = 5.625/8;
+    const int     sb_yaw_speed = 255;
 
-    float angle_alpha_change_unit = 0.5;        //云台仰角每次检测变化的角度，记得改
-    volatile float  step_alpha = 0;             //用作储存中间变量,不用改
-    const float     angle_alpha_offset = 90;
-    const float     angle_alpha_max = 30;                 //就是中立位正负的角度，调整
+    const float   angle_alpha_change_unit = 1;      //云台仰角每次检测变化的角度，记得改
+    const float     angle_alpha_offset = 90;    //就是中立位正负的角度
+    const float     angle_alpha_max = 30;                 
     const float     angle_alpha_min = -30;
 
-    volatile bool   shoot_once = false;         //不要once了       
-    volatile bool   shoot_dadada = false;
-    volatile bool   friction_wheel_on = false;  //摩擦轮转动标志
-    const int       shoot_speed = 20;           //供弹步进电机转速
+    bool            shoot_once = false;         //不要once了       
+    bool            shoot_dadada = false;
+    bool            friction_wheel_on = false;  //摩擦轮转动标志
+    const int       shoot_speed = 20;           //供弹电机转速
     const int       sb_shoot_speed = 200;       //供弹智障电机转速
 
   //手柄部分
@@ -132,8 +131,8 @@
         void (*resetFunc)(void) = 0;
     Servo myservo;
     MPU6050 mpu6050(Wire);  // 新建一个mpu6050实例
-    CheapStepper stepper_yaw (STEPPER_YAW_1,STEPPER_YAW_2,STEPPER_YAW_3,STEPPER_YAW_4);  
-    CheapStepper stepper_shoot (STEPPER_SHOOT_1,STEPPER_SHOOT_2,STEPPER_SHOOT_3,STEPPER_SHOOT_4);  
+    CheapStepper stepper_yaw(STEPPER_YAW_1,STEPPER_YAW_2,STEPPER_YAW_3,STEPPER_YAW_4);  
+    CheapStepper stepper_shoot(STEPPER_SHOOT_1,STEPPER_SHOOT_2,STEPPER_SHOOT_3,STEPPER_SHOOT_4);  
 
     PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel, Ki_wheel, Kd_wheel, DIRECT);
     PID wheel_2(&wheel_current_speed_2, &wheel_pwm_2, &wheel_speed_2, Kp_wheel, Ki_wheel, Kd_wheel, DIRECT);
@@ -262,6 +261,7 @@ void update_value_from_pad(){
      *  Triangle(test_only)
      *  CROSS(test_only now)
      */
+    float  step_alpha = 0;             //用作储存中间变量,不用改
     //******************读手柄数据******************//
         ps2x.read_gamepad(false, vibrate);
         vibrate = ps2x.Analog(PSAB_CROSS); //（X）键按多重，就震动多重，用来快速检测有没有连接上手柄
@@ -501,19 +501,19 @@ void wheel_pwm_without_PID(){
      * output:
      *  wheel_pwm_[1-4]
      */
-    if(wheel_speed_1 = 0){wheel_pwm_1 =0;}
+    if(wheel_speed_1 == 0){wheel_pwm_1 =0;}
     else if(wheel_pwm_1 > wheel_speed_1){wheel_pwm_1 -= wheel_pwm_change_unit;}
     else if(wheel_pwm_1 < wheel_speed_1){wheel_pwm_1 += wheel_pwm_change_unit;}
 
-    if(wheel_speed_2 = 0){wheel_pwm_2 =0;}
+    if(wheel_speed_2 == 0){wheel_pwm_2 =0;}
     else if(wheel_pwm_2 > wheel_speed_2){wheel_pwm_2 -= wheel_pwm_change_unit;}
     else if(wheel_pwm_2 < wheel_speed_2){wheel_pwm_2 += wheel_pwm_change_unit;}
 
-    if(wheel_speed_3 = 0){wheel_pwm_3 =0;}
+    if(wheel_speed_3 == 0){wheel_pwm_3 =0;}
     else if(wheel_pwm_3 > wheel_speed_3){wheel_pwm_3 -= wheel_pwm_change_unit;}
     else if(wheel_pwm_3 < wheel_speed_3){wheel_pwm_3 += wheel_pwm_change_unit;}
 
-    if(wheel_speed_4 = 0){wheel_pwm_4 =0;}
+    if(wheel_speed_4 == 0){wheel_pwm_4 =0;}
     else if(wheel_pwm_4 > wheel_speed_4){wheel_pwm_4 -= wheel_pwm_change_unit;}
     else if(wheel_pwm_4 < wheel_speed_4){wheel_pwm_4 += wheel_pwm_change_unit;}
     
