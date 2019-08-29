@@ -84,10 +84,9 @@
     double wheel_current_speed_3 = 0;
     double wheel_current_speed_4 = 0;
 
-    double Kp_wheel_1=0, Ki_wheel_1=0, Kd_wheel_1=0;
-    double Kp_wheel_2=0, Ki_wheel_2=0, Kd_wheel_2=0;
-    double Kp_wheel_3=0, Ki_wheel_3=0, Kd_wheel_3=0;
-    double Kp_wheel_4=0, Ki_wheel_4=0, Kd_wheel_4=0;
+    double wheel_pwm_change_unit = 1;
+
+    double Kp_wheel=0, Ki_wheel=0, Kd_wheel=0;
     long  last_front_change = 0;                        //cache
     const int rotating_speed = 255;
     const int  front_change_delay = 300;//ms            //切换方向的消抖延时
@@ -135,10 +134,11 @@
     MPU6050 mpu6050(Wire);  // 新建一个mpu6050实例
     CheapStepper stepper_yaw (STEPPER_YAW_1,STEPPER_YAW_2,STEPPER_YAW_3,STEPPER_YAW_4);  
     CheapStepper stepper_shoot (STEPPER_SHOOT_1,STEPPER_SHOOT_2,STEPPER_SHOOT_3,STEPPER_SHOOT_4);  
-    PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel_1, Ki_wheel_1, Kd_wheel_1, DIRECT);
-    PID wheel_2(&wheel_current_speed_2, &wheel_pwm_2, &wheel_speed_2, Kp_wheel_2, Ki_wheel_2, Kd_wheel_2, DIRECT);
-    PID wheel_3(&wheel_current_speed_3, &wheel_pwm_3, &wheel_speed_3, Kp_wheel_3, Ki_wheel_3, Kd_wheel_3, DIRECT);
-    PID wheel_4(&wheel_current_speed_4, &wheel_pwm_4, &wheel_speed_4, Kp_wheel_4, Ki_wheel_4, Kd_wheel_4, DIRECT);
+
+    PID wheel_1(&wheel_current_speed_1, &wheel_pwm_1, &wheel_speed_1, Kp_wheel, Ki_wheel, Kd_wheel, DIRECT);
+    PID wheel_2(&wheel_current_speed_2, &wheel_pwm_2, &wheel_speed_2, Kp_wheel, Ki_wheel, Kd_wheel, DIRECT);
+    PID wheel_3(&wheel_current_speed_3, &wheel_pwm_3, &wheel_speed_3, Kp_wheel, Ki_wheel, Kd_wheel, DIRECT);
+    PID wheel_4(&wheel_current_speed_4, &wheel_pwm_4, &wheel_speed_4, Kp_wheel, Ki_wheel, Kd_wheel, DIRECT);
 //*************setup,loop主程序*************//
 void setup(){
     //*************设置针脚模式*************//
@@ -168,6 +168,7 @@ void setup(){
         pinMode(SB_SHOOT_IN2,OUTPUT);
 
         pinMode(FRICTION_WHEEL,OUTPUT);
+        pinMode(SERVO_PIN,OUTPUT);
 
         pinMode(WHEEL_SPEED_READ_1,INPUT); //TODO:还没有设置读取函数，现在只有脚
         pinMode(WHEEL_SPEED_READ_1,INPUT);
@@ -494,16 +495,32 @@ void speed_combine(){
     }
 }
 void wheel_pwm_without_PID(){
-    /* 直接把wheel_speed变成pwm没有pid控制
+    /* 直接把wheel_speed变成pwm没有pid控制,逐渐增加，因为直接给255的话，4个电机不能一起转（学生电源）
      * input:
      *  wheel_speed_[1-4]
      * output:
      *  wheel_pwm_[1-4]
      */
-    wheel_pwm_1 = wheel_speed_1;
-    wheel_pwm_2 = wheel_speed_2;
-    wheel_pwm_3 = wheel_speed_3;
-    wheel_pwm_4 = wheel_speed_4;
+    if(wheel_pwm_1 > wheel_speed_1){
+        wheel_pwm_1 -= wheel_pwm_change_unit;
+    }else if(wheel_pwm_1 < wheel_speed_1){
+        wheel_pwm_1 += wheel_pwm_change_unit;
+    }
+    if(wheel_pwm_2 > wheel_speed_2){
+        wheel_pwm_2 -= wheel_pwm_change_unit;
+    }else if(wheel_pwm_2 < wheel_speed_2){
+        wheel_pwm_2 += wheel_pwm_change_unit;
+    }
+    if(wheel_pwm_3 > wheel_speed_3){
+        wheel_pwm_3 -= wheel_pwm_change_unit;
+    }else if(wheel_pwm_3 < wheel_speed_3){
+        wheel_pwm_3 += wheel_pwm_change_unit;
+    }
+    if(wheel_pwm_4 > wheel_speed_4){
+        wheel_pwm_4 -= wheel_pwm_change_unit;
+    }else if(wheel_pwm_4 < wheel_speed_4){
+        wheel_pwm_4 += wheel_pwm_change_unit;
+    }
     //测试用
     if (ps2x.Button(PSB_L2)){
         Serial.print("wheel speed: ");
@@ -514,6 +531,14 @@ void wheel_pwm_without_PID(){
         Serial.print(wheel_speed_3);
         Serial.print(" | ");
         Serial.println(wheel_speed_4);
+        Serial.print("wheel pwm: ");
+        Serial.print(wheel_pwm_1);
+        Serial.print(" | ");
+        Serial.print(wheel_pwm_2);
+        Serial.print(" | ");
+        Serial.print(wheel_pwm_3);
+        Serial.print(" | ");
+        Serial.println(wheel_pwm_4);
         }
 }
 void motor_control(){
@@ -601,7 +626,7 @@ void update_current_position() {
 }
 //*************舵机指向*************//
 void servo_initial(){
-    myservo.attach(SERVO_PIN);
+    myservo.attach(SERVO_PIN,500,2500);
     myservo.write(angle_alpha_offset);                  //pitch轴回中
 }
 void servo_control(){
