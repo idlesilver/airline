@@ -360,8 +360,8 @@ void update_value_from_pad(){
                 Serial.println(angle_theta);
             }
             if (abs(ps2x.Analog(PSS_RX)-127) >= stick_sensitive_val) {//给智障电机的旋转信号
-                if(ps2x.Analog(PSS_RX)-127 > 0){sb_turn_clockwise = true;sb_turn_counterclockwise =false;}
-                if(ps2x.Analog(PSS_RX)-127 < 0){sb_turn_clockwise = false;sb_turn_counterclockwise =ture;}
+                if(ps2x.Analog(PSS_RX)-127 > 0){sb_turn_clockwise = true;sb_turn_counterclockwise = false;}
+                if(ps2x.Analog(PSS_RX)-127 < 0){sb_turn_clockwise = false;sb_turn_counterclockwise = true;} //FIXME:yaw电机只能向一个方向转！！
             }else{
                 sb_turn_clockwise =false;
                 sb_turn_counterclockwise =false;
