@@ -92,10 +92,12 @@
     const int front_change_delay = 300;//ms            //切换方向的消抖延时
 
   //云台部分
-    float angle_theta = 0;             //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
-    float angle_alpha = 0;             //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
-    int front = 0;                     //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
-    int rotating = 0;                  //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
+    float   angle_theta = 0;                //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
+    float   angle_alpha = 0;                //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
+    bool    sb_turn_clockwise = false;             //给智障电机的旋转信号
+    bool    sb_turn_counterclockwise = false;
+    int     front = 0;                      //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
+    int     rotating = 0;                   //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
     float current_angle_theta = 0;              //由传感器测得的当前角度值
     float current_angle_alpha = 0;
@@ -223,7 +225,7 @@ void loop(){
     //*************舵机控制*************//
         servo_control();
     //*************云台转向控制*************//
-        sb_yaw_openloop();
+        sb_yaw_openloop_without_angle();
     //*************射弹控制*************//
         friction_wheel_run();
         sb_shoot_dadada();
@@ -356,6 +358,13 @@ void update_value_from_pad(){
                 angle_theta += step_theta;
                 Serial.print("angle_theta is: ");
                 Serial.println(angle_theta);
+            }
+            if (abs(ps2x.Analog(PSS_RX)-127) >= stick_sensitive_val) {//给智障电机的旋转信号
+                if(ps2x.Analog(PSS_RX)-127 > 0){sb_turn_clockwise = true;sb_turn_counterclockwise =false;}
+                if(ps2x.Analog(PSS_RX)-127 < 0){sb_turn_clockwise = false;sb_turn_counterclockwise =ture;}
+            }else{
+                sb_turn_clockwise =false;
+                sb_turn_counterclockwise =false;
             }
     //射击模块
         if (ps2x.ButtonPressed(PSB_L1)){
@@ -527,7 +536,7 @@ void wheel_pwm_without_PID(){
         Serial.print(wheel_speed_3);
         Serial.print(" | ");
         Serial.println(wheel_speed_4);
-        Serial.print("wheel pwm: ");
+        Serial.print("wheel pwm:   ");
         Serial.print(wheel_pwm_1);
         Serial.print(" | ");
         Serial.print(wheel_pwm_2);
@@ -671,7 +680,7 @@ void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是�
         stepper_yaw.stop();
     }
 }
-void sb_yaw_openloop(){
+void sb_yaw_openloop(){//好像不行，可能是因为current更新太快，没有旋转
     int signal = 0;
     if (int(abs(angle_theta - current_angle_theta)) > 1){//化成int，防止两个float相减不为0
         if(angle_theta - current_angle_theta > 0){
@@ -689,6 +698,19 @@ void sb_yaw_openloop(){
         Serial.print(current_angle_theta);
         Serial.print(" | ");
         Serial.println(angle_theta);
+    }else{
+        digitalWrite(SB_YAW_IN1,LOW);
+        digitalWrite(SB_YAW_IN2,LOW);
+    }
+}
+void sb_yaw_openloop_without_angle(){
+    int signal = 0;
+    if(sb_turn_clockwise && !sb_turn_counterclockwise){
+        digitalWrite(SB_YAW_IN1,HIGH);
+        digitalWrite(SB_YAW_IN2,LOW);
+    }else if(!sb_turn_clockwise && sb_turn_counterclockwise){
+        digitalWrite(SB_YAW_IN1,LOW);
+        digitalWrite(SB_YAW_IN2,HIGH);
     }else{
         digitalWrite(SB_YAW_IN1,LOW);
         digitalWrite(SB_YAW_IN2,LOW);
