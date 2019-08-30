@@ -127,6 +127,7 @@
 
 //*************新建实例，初始化实例*************//
     Thread readPad = Thread();
+    Thread servoUpdate = Thread();
     PS2X ps2x; // create PS2 Controller Class
         byte vibrate = 0;
         int ps2x_error = 0;
@@ -190,6 +191,8 @@ void setup(){
     //*************初始化位置*************//
         // mpu_initial();
         servo_initial();                    //pitch轴回中
+        servoUpdate.onRun(servo_control);
+        servoUpdate.setInterval(20);
         // stepper_yaw_initial();              //设置yaw轴步进电机速度
         // stepper_shoot_initial();
         analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
@@ -223,7 +226,9 @@ void loop(){
             }
         motor_control();
     //*************舵机控制*************//
-        servo_control();
+        // servo_control();
+        if(servoUpdate.shouldRun())
+            servoUpdate.run();
     //*************云台转向控制*************//
         sb_yaw_openloop_without_angle();
     //*************射弹控制*************//
@@ -268,7 +273,7 @@ void update_value_from_pad(){
         ps2x.read_gamepad(false, vibrate);
         vibrate = ps2x.Analog(PSAB_CROSS); //（X）键按多重，就震动多重，用来快速检测有没有连接上手柄
     //更新左边上下左右按键
-      //上下键控制云台仰角 FIXME:真的需要这个功能？？？？？
+      //上下键控制云台仰角
         if (ps2x.Button(PSB_PAD_UP))
         {
             if (angle_alpha >= angle_alpha_max)
@@ -361,7 +366,11 @@ void update_value_from_pad(){
             }
             if (abs(ps2x.Analog(PSS_RX)-127) >= stick_sensitive_val) {//给智障电机的旋转信号
                 if(ps2x.Analog(PSS_RX)-127 > 0){sb_turn_clockwise = true;sb_turn_counterclockwise = false;}
-                if(ps2x.Analog(PSS_RX)-127 < 0){sb_turn_clockwise = false;sb_turn_counterclockwise = true;} //FIXME:yaw电机只能向一个方向转！！
+                else if(ps2x.Analog(PSS_RX)-127 < 0){sb_turn_clockwise = false;sb_turn_counterclockwise = true;} //FIXME:yaw电机只能向一个方向转！！
+                Serial.print("CW, CCW: ");
+                Serial.print(sb_turn_clockwise);
+                Serial.print(" | ");
+                Serial.println(sb_turn_counterclockwise);
             }else{
                 sb_turn_clockwise =false;
                 sb_turn_counterclockwise =false;
@@ -635,7 +644,7 @@ void servo_initial(){
     myservo.write(angle_alpha_offset);                  //pitch轴回中
 }
 void servo_control(){
-    myservo.write(angle_alpha+angle_alpha_offset);
+    myservo.write(int(angle_alpha+angle_alpha_offset));
 }
 //*************云台步进电机*************//
 void stepper_yaw_initial(){
