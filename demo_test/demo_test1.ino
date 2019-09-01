@@ -83,38 +83,43 @@
     double wheel_current_speed_2 = 0;
     double wheel_current_speed_3 = 0;
     double wheel_current_speed_4 = 0;
-
-    double wheel_pwm_change_unit = 1;
-
-    double Kp_wheel=0, Ki_wheel=0, Kd_wheel=0;
-    long  last_front_change = 0;                        //cache
     const int rotating_speed = 255;
+
+    const double wheel_pwm_change_unit = 1;       //轮速渐变用
+
+    double Kp_wheel=0, Ki_wheel=0, Kd_wheel=0;      //PID用
+
+    long  last_front_change = 0;                        //cache
     const int front_change_delay = 300;//ms            //切换方向的消抖延时
+    int     front = 0;                      //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
+    int     rotating = 0;                   //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
 
   //云台部分
     float   angle_theta = 0;                //云台水平角度，这些都是target，current由mpu读取。PID控制，TODO:初始值由6轴传感器测定
     float   angle_alpha = 0;                //就是默认初始值偏移的角度，写给servo类时，用angle_alpha+angle_alpha_offset
-    bool    sb_turn_clockwise = false;             //给智障电机的旋转信号
+    float   current_angle_theta = 0;        //由传感器测得的当前角度值
+    float   current_angle_alpha = 0;
+
+    bool    sb_turn_clockwise = false;              //给智障电机的旋转信号
     bool    sb_turn_counterclockwise = false;
-    int     front = 0;                      //0，1，2，3四个值，分别表示一个方向，按circle键依次切换正方向
-    int     rotating = 0;                   //正数顺转，负数逆转，0不转，“优先度”要高于平移运动
+    long    sweep_speed_level = 1;                  //云台旋转的速度挡位1，2，3（满速除以这个数值）
+    long    sweep_speed_level_last_change_time = 0;
+    const long  sweep_speed_level_delay = 300;//ms  //切换云台转速的挡位
 
-    float current_angle_theta = 0;              //由传感器测得的当前角度值
-    float current_angle_alpha = 0;
-
-    bool   moveClockwise = true;
+    bool    stepper_move_clockwise = true;
     float   step_theta = 0;                         //用作储存中间变量,不用改
-    const float   angle_theta_change_unit = 1;    //云台水平变化的角度，记得改
+    const float   angle_theta_change_unit = 1;      //云台水平变化的角度，记得改
     const int     step_each_time = 2;               //stepper_yaw每次改变的步数，用于控制theta的精度
     const int     speedup_ratio = 2;                //yaw电机轴速度和云台真实轴速度的比值，不是加速比
     const float   angle_per_step = 5.625/8;
     const int     sb_yaw_speed = 255;
 
-    const float   angle_alpha_change_unit = 1;      //云台仰角每次检测变化的角度，记得改
-    const float     angle_alpha_offset = 90;    //就是中立位正负的角度
+    const float     angle_alpha_change_unit = 1;    //云台仰角每次检测变化的角度，记得改
+    const float     angle_alpha_offset = 90;        //就是中立位正负的角度
     const float     angle_alpha_max = 30;                 
     const float     angle_alpha_min = -30;
 
+  //射击部分
     bool            shoot_once = false;         //不要once了       
     bool            shoot_dadada = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
@@ -317,7 +322,17 @@ void update_value_from_pad(){
             if (millis()-last_front_change >= front_change_delay){
                 front = (front + 1) % 4;
                 last_front_change = millis();
-            Serial.println("Circle just pressed, front changed to: ");
+            Serial.print("Circle just pressed, front changed to: ");
+            Serial.println(front);
+            }
+        }
+    //按下square键，改变front，即小车正方向
+        if (ps2x.ButtonPressed(PSB_SQUARE))
+        {   //TODO:ButtonPressed本身就有消抖
+            if (millis()-last_front_change >= front_change_delay){
+                sweep_speed_level = (sweep_speed_level + 1) % 3 +1;
+                last_front_change = millis();
+            Serial.print("Sweep speed is changed to: ");
             Serial.println(front);
             }
         }
@@ -653,15 +668,15 @@ void stepper_yaw_initial(){
 }
 void stepper_yaw_with_angle(){//不知道库里的函数能不能直接用，这边加速齿轮会比较难算
     stepper_yaw.run();
-    if(angle_theta - current_angle_theta > 0){moveClockwise = true;}
-    else if(angle_theta - current_angle_theta <0){moveClockwise = false;}
-    stepper_yaw.newMoveToDegree(moveClockwise,angle_theta);
+    if(angle_theta - current_angle_theta > 0){stepper_move_clockwise = true;}
+    else if(angle_theta - current_angle_theta <0){stepper_move_clockwise = false;}
+    stepper_yaw.newMoveToDegree(stepper_move_clockwise,angle_theta);
 }
 void stepper_yaw_steps(){//这样一定能转到想转的位置,但是每次更新几步是个问题
     if (int(angle_theta - current_angle_theta) > 1){//化成int，防止两个float相减不为0
-        if(angle_theta - current_angle_theta > 0){moveClockwise = true;}        //FIXME:不知道方向对不对，可能还大于小于号
-        else if(angle_theta - current_angle_theta < 0){moveClockwise = false;}
-        stepper_yaw.newMoveDegrees(moveClockwise,int(angle_theta - current_angle_theta)*speedup_ratio);//讲道理这里不用ratio也可以
+        if(angle_theta - current_angle_theta > 0){stepper_move_clockwise = true;}        //FIXME:不知道方向对不对，可能还大于小于号
+        else if(angle_theta - current_angle_theta < 0){stepper_move_clockwise = false;}
+        stepper_yaw.newMoveDegrees(stepper_move_clockwise,int(angle_theta - current_angle_theta)*speedup_ratio);//讲道理这里不用ratio也可以
     }else{
         stepper_yaw.stop();
     }
@@ -671,14 +686,14 @@ void stepper_yaw_steps_openloop(){//这样一定能转到想转的位置,但是�
     int signal = 0;
     if (int(abs(angle_theta - current_angle_theta)) > 1){//化成int，防止两个float相减不为0
         if(angle_theta - current_angle_theta > 0){
-            moveClockwise = true;           //FIXME:不知道方向对不对，可能还大于小于号
+            stepper_move_clockwise = true;           //FIXME:不知道方向对不对，可能还大于小于号
             signal = 1;
         }        
         else if(angle_theta - current_angle_theta < 0){
-            moveClockwise = false;
+            stepper_move_clockwise = false;
             signal = -1;
             }
-        stepper_yaw.newMoveDegrees(moveClockwise,30);//讲道理这里不用ratio也可以
+        stepper_yaw.newMoveDegrees(stepper_move_clockwise,30);//讲道理这里不用ratio也可以
         current_angle_theta += signal * angle_per_step * speedup_ratio;
         stepper_yaw.run();
         Serial.print("current & target: ");
@@ -714,6 +729,7 @@ void sb_yaw_openloop(){//好像不行，可能是因为current更新太快，没
 }
 void sb_yaw_openloop_without_angle(){
     int signal = 0;
+    analogWrite(SB_PWM_YAW,sb_yaw_speed/sweep_speed_level)
     if(sb_turn_clockwise && !sb_turn_counterclockwise){
         digitalWrite(SB_YAW_IN1,HIGH);
         digitalWrite(SB_YAW_IN2,LOW);
