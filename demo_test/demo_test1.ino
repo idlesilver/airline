@@ -729,7 +729,7 @@ void sb_yaw_openloop(){//好像不行，可能是因为current更新太快，没
 }
 void sb_yaw_openloop_without_angle(){
     int signal = 0;
-    analogWrite(SB_PWM_YAW,sb_yaw_speed/sweep_speed_level)
+    analogWrite(SB_PWM_YAW,sb_yaw_speed/sweep_speed_level);
     if(sb_turn_clockwise && !sb_turn_counterclockwise){
         digitalWrite(SB_YAW_IN1,HIGH);
         digitalWrite(SB_YAW_IN2,LOW);
