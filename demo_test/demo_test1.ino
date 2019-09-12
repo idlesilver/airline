@@ -116,15 +116,15 @@
 
     const float     angle_alpha_change_unit = 1;    //云台仰角每次检测变化的角度，记得改
     const float     angle_alpha_offset = 90;        //就是中立位正负的角度
-    const float     angle_alpha_max = 30;                 
-    const float     angle_alpha_min = -30;
+    const float     angle_alpha_max = 45;                 
+    const float     angle_alpha_min = -45;
 
   //射击部分
     bool            shoot_once = false;         //不要once了       
     bool            shoot_dadada = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
     const int       shoot_speed = 20;           //供弹电机转速
-    const int       sb_shoot_speed = 200;       //供弹智障电机转速
+    const int       sb_shoot_speed = 255;       //供弹智障电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -197,11 +197,11 @@ void setup(){
         // mpu_initial();
         servo_initial();                    //pitch轴回中
         servoUpdate.onRun(servo_control);
-        servoUpdate.setInterval(20);
+        servoUpdate.setInterval(10);
         // stepper_yaw_initial();              //设置yaw轴步进电机速度
         // stepper_shoot_initial();
-        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
-        analogWrite(SB_PWM_YAW,sb_yaw_speed);
+        analogWrite(SB_PWM_SHOOT,0);
+        analogWrite(SB_PWM_YAW,0);
     //*************PID控制*************//
         wheel_1.SetMode(AUTOMATIC);
         wheel_2.SetMode(AUTOMATIC);
@@ -302,13 +302,13 @@ void update_value_from_pad(){
       //左右键控制是否顺逆时针旋转
         if (ps2x.Button(PSB_PAD_RIGHT))
         {   //TODO:吃得消的话，可以把按键的压力值变成旋转的速度
-            rotating = 1;
+            rotating = -1;
             Serial.print("rotating is ");
             Serial.println(rotating);
         }
         else if (ps2x.Button(PSB_PAD_LEFT))
         {
-            rotating = -1;
+            rotating = 1;
             Serial.print("rotating is ");
             Serial.println(rotating);
         }
@@ -659,7 +659,16 @@ void servo_initial(){
     myservo.write(angle_alpha_offset);                  //pitch轴回中
 }
 void servo_control(){
-    myservo.write(int(angle_alpha+angle_alpha_offset));
+    static long lasttime = 0;
+    myservo.writeMicroseconds(map(int(angle_alpha+angle_alpha_offset),0,180,500,2500));
+    Serial.println((map(int(angle_alpha+angle_alpha_offset),0,180,500,2500)));
+    Serial.println(micros() - lasttime);
+    lasttime = micros();
+}
+void servo_control_raw(){
+    digitalWrite(SERVO_PIN,HIGH);
+    delayMicroseconds(map(int(angle_alpha+angle_alpha_offset),0,180,500,2500));
+    digitalWrite(SERVO_PIN,LOW);
 }
 //*************云台步进电机*************//
 void stepper_yaw_initial(){
