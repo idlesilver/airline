@@ -32,31 +32,31 @@
     #define WHEEL_PWM_4 5
     #define SB_PWM_YAW  6
     #define SB_PWM_SHOOT 7
+    #define SERVO_PIN   8
 
-    #define SERVO_PIN 8
 
     #define WHEEL_SPEED_READ_1 A0
     #define WHEEL_SPEED_READ_2 A1
     #define WHEEL_SPEED_READ_3 A2
     #define WHEEL_SPEED_READ_4 A3
 
-    #define WHEEL_IN1_1 22
-    #define WHEEL_IN2_1 23
-    #define WHEEL_IN1_2 24
-    #define WHEEL_IN2_2 25
-    #define WHEEL_IN1_3 26
-    #define WHEEL_IN2_3 27
-    #define WHEEL_IN1_4 28
-    #define WHEEL_IN2_4 29
+    #define WHEEL_IN1_1    30
+    #define WHEEL_IN2_1    31
+    #define WHEEL_IN1_2    32
+    #define WHEEL_IN2_2    33
+    #define WHEEL_IN1_3    34
+    #define WHEEL_IN2_3    35
+    #define WHEEL_IN1_4    36
+    #define WHEEL_IN2_4    37
 
-    #define STEPPER_YAW_1 30
-    #define STEPPER_YAW_2 32
-    #define STEPPER_YAW_3 34
-    #define STEPPER_YAW_4 36
-    #define STEPPER_SHOOT_1 31
-    #define STEPPER_SHOOT_2 33
-    #define STEPPER_SHOOT_3 35
-    #define STEPPER_SHOOT_4 37
+    #define STEPPER_YAW_1    22 //30
+    #define STEPPER_YAW_2    23 //32
+    #define STEPPER_YAW_3    24 //34
+    #define STEPPER_YAW_4    25 //36
+    #define STEPPER_SHOOT_1  26 //31
+    #define STEPPER_SHOOT_2  27 //33
+    #define STEPPER_SHOOT_3  28 //35
+    #define STEPPER_SHOOT_4  29 //37
 
     #define SB_YAW_IN1 38
     #define SB_YAW_IN2 39
@@ -83,7 +83,7 @@
     double wheel_current_speed_2 = 0;
     double wheel_current_speed_3 = 0;
     double wheel_current_speed_4 = 0;
-    const int rotating_speed = 255;
+    const int rotating_speed = 150;
 
     const double wheel_pwm_change_unit = 1;       //轮速渐变用
 
@@ -116,15 +116,15 @@
 
     const float     angle_alpha_change_unit = 1;    //云台仰角每次检测变化的角度，记得改
     const float     angle_alpha_offset = 90;        //就是中立位正负的角度
-    const float     angle_alpha_max = 45;                 
-    const float     angle_alpha_min = -45;
+    const float     angle_alpha_max = 30;                 
+    const float     angle_alpha_min = -15;
 
   //射击部分
     bool            shoot_once = false;         //不要once了       
     bool            shoot_dadada = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
     const int       shoot_speed = 20;           //供弹电机转速
-    const int       sb_shoot_speed = 255;       //供弹智障电机转速
+    const int       sb_shoot_speed = 100;       //供弹智障电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -636,7 +636,7 @@ void mpu_initial(){
     angle_alpha = mpu6050.getGyroAngleY();
     angle_theta = mpu6050.getGyroAngleZ();
 }
-void update_current_position() {
+void update_current_position(){
     /* 更新当前位置 */
     int timer =0;
     mpu6050.update();              // 更新当前位置
@@ -661,8 +661,8 @@ void servo_initial(){
 void servo_control(){
     static long lasttime = 0;
     myservo.writeMicroseconds(map(int(angle_alpha+angle_alpha_offset),0,180,500,2500));
-    Serial.println((map(int(angle_alpha+angle_alpha_offset),0,180,500,2500)));
-    Serial.println(micros() - lasttime);
+    // Serial.println((map(int(angle_alpha+angle_alpha_offset),0,180,500,2500)));
+    // Serial.println(micros() - lasttime);
     lasttime = micros();
 }
 void servo_control_raw(){
@@ -789,10 +789,10 @@ void stepper_shoot_dadada_run_no_stop(){
 void sb_shoot_dadada(){
     if(friction_wheel_on && shoot_dadada){
         analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
-        digitalWrite(SB_SHOOT_IN1,HIGH);
+        // digitalWrite(SB_SHOOT_IN1,sb_shoot_speed);
     }else{
         analogWrite(SB_PWM_SHOOT,0);
-        digitalWrite(SB_SHOOT_IN1,LOW);
+        // digitalWrite(SB_SHOOT_IN1,0);
     }
 }
 void friction_wheel_run(){
