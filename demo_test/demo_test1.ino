@@ -83,7 +83,7 @@
     double wheel_current_speed_2 = 0;
     double wheel_current_speed_3 = 0;
     double wheel_current_speed_4 = 0;
-    const int rotating_speed = 150;
+    const int rotating_speed = 130;
 
     const double wheel_pwm_change_unit = 1;       //轮速渐变用
 
@@ -102,7 +102,7 @@
 
     bool    sb_turn_clockwise = false;              //给智障电机的旋转信号
     bool    sb_turn_counterclockwise = false;
-    long    sweep_speed_level = 1;                  //云台旋转的速度挡位1，2，3（满速除以这个数值）
+    long    sweep_speed_level = 0;                  //云台旋转的速度挡位1，2，3（满速除以这个数值）
     long    sweep_speed_level_last_change_time = 0;
     const long  sweep_speed_level_delay = 300;//ms  //切换云台转速的挡位
 
@@ -326,14 +326,14 @@ void update_value_from_pad(){
             Serial.println(front);
             }
         }
-    //按下square键，改变front，即小车正方向
+    //按下square键，改变yaw轴旋转速度
         if (ps2x.ButtonPressed(PSB_SQUARE))
         {   //TODO:ButtonPressed本身就有消抖
             if (millis()-last_front_change >= front_change_delay){
-                sweep_speed_level = (sweep_speed_level + 1) % 3 +1;
+                sweep_speed_level = (sweep_speed_level + 1) % 3 ;
                 last_front_change = millis();
             Serial.print("Sweep speed is changed to: ");
-            Serial.println(front);
+            Serial.println(sweep_speed_level);
             }
         }
     //摇杆的值作为移动速度
@@ -738,7 +738,7 @@ void sb_yaw_openloop(){//好像不行，可能是因为current更新太快，没
 }
 void sb_yaw_openloop_without_angle(){
     int signal = 0;
-    analogWrite(SB_PWM_YAW,sb_yaw_speed/sweep_speed_level);
+    analogWrite(SB_PWM_YAW,sb_yaw_speed-sweep_speed_level*50);
     if(sb_turn_clockwise && !sb_turn_counterclockwise){
         digitalWrite(SB_YAW_IN1,HIGH);
         digitalWrite(SB_YAW_IN2,LOW);
