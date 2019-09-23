@@ -33,6 +33,7 @@
     #define SB_PWM_YAW  6
     #define SB_PWM_SHOOT 7
     #define SERVO_PIN   8
+    #define FRICTION_WHEEL 9
 
 
     #define WHEEL_SPEED_READ_1 A0
@@ -63,8 +64,6 @@
     #define SB_SHOOT_IN1 40
     #define SB_SHOOT_IN2 41
 
-    #define FRICTION_WHEEL 50
-    
     #define use_PID false
 
 //*************设置全局变量*************//
@@ -738,7 +737,7 @@ void sb_yaw_openloop(){//好像不行，可能是因为current更新太快，没
 }
 void sb_yaw_openloop_without_angle(){
     int signal = 0;
-    analogWrite(SB_PWM_YAW,sb_yaw_speed-sweep_speed_level*50);
+    analogWrite(SB_PWM_YAW,sb_yaw_speed-sweep_speed_level*60);//FIXME:调整最后的数字来调整yaw轴档位
     if(sb_turn_clockwise && !sb_turn_counterclockwise){
         digitalWrite(SB_YAW_IN1,HIGH);
         digitalWrite(SB_YAW_IN2,LOW);
