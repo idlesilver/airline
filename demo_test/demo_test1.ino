@@ -123,7 +123,7 @@
     bool            shoot_dadada = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
     const int       shoot_speed = 20;           //供弹电机转速
-    const int       sb_shoot_speed = 100;       //供弹智障电机转速
+    const int       sb_shoot_speed = 130;       //供弹智障电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -618,10 +618,10 @@ void motor_control(){
         digitalWrite(WHEEL_IN1_4,LOW);
         digitalWrite(WHEEL_IN2_4,LOW);
         }
-    analogWrite(WHEEL_PWM_1,abs(wheel_pwm_1));
-    analogWrite(WHEEL_PWM_2,abs(wheel_pwm_2));
-    analogWrite(WHEEL_PWM_3,abs(wheel_pwm_3));
-    analogWrite(WHEEL_PWM_4,abs(wheel_pwm_4));
+    analogWrite(WHEEL_PWM_1,abs(int(wheel_pwm_1*0.6)));
+    analogWrite(WHEEL_PWM_2,abs(int(wheel_pwm_2*0.6)));
+    analogWrite(WHEEL_PWM_3,abs(int(wheel_pwm_3*0.6)));
+    analogWrite(WHEEL_PWM_4,abs(int(wheel_pwm_4*0.6)));
 }
 //*************云台指向*************//
 void mpu_initial(){
