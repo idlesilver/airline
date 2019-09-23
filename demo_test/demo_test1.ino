@@ -82,7 +82,7 @@
     double wheel_current_speed_2 = 0;
     double wheel_current_speed_3 = 0;
     double wheel_current_speed_4 = 0;
-    const int rotating_speed = 130;
+    const int rotating_speed = 160;
 
     const double wheel_pwm_change_unit = 1;       //轮速渐变用
 
@@ -122,8 +122,8 @@
     bool            shoot_once = false;         //不要once了       
     bool            shoot_dadada = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
-    const int       shoot_speed = 20;           //供弹电机转速
-    const int       sb_shoot_speed = 130;       //供弹智障电机转速
+    const int       shoot_speed = 20;           //供弹步进电机转速
+    const int       sb_shoot_speed = 180;       //供弹智障电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -283,7 +283,7 @@ void update_value_from_pad(){
             if (angle_alpha >= angle_alpha_max)
                 angle_alpha = angle_alpha_max;
             else
-                angle_alpha -= angle_alpha_change_unit;
+                angle_alpha += angle_alpha_change_unit;
             Serial.print("UP is pressed, ");
             Serial.print("angle_alpha is ");
             Serial.println(angle_alpha);
@@ -293,7 +293,7 @@ void update_value_from_pad(){
             if (angle_alpha <= angle_alpha_min)
                 angle_alpha = angle_alpha_min;
             else
-                angle_alpha += angle_alpha_change_unit;
+                angle_alpha -= angle_alpha_change_unit;
             Serial.print("DOWN is pressed, ");
             Serial.print("angle_alpha is ");
             Serial.println(angle_alpha);
@@ -367,7 +367,7 @@ void update_value_from_pad(){
             if (abs(ps2x.Analog(PSS_RY) -127) >= stick_sensitive_val){     
                 if (step_alpha >0 && angle_alpha >= angle_alpha_max) angle_alpha = angle_alpha_max;
                 else if (step_alpha <0 && angle_alpha <= angle_alpha_min) angle_alpha = angle_alpha_min;
-                else angle_alpha -= step_alpha;                 //TODO:这里为了让摇杆和云台一致，还是取了负号
+                else angle_alpha += step_alpha;                 
                 Serial.print("angle_alpha is: ");
                 Serial.println(angle_alpha);
             }
@@ -422,19 +422,19 @@ void speed_combine(){
     int wheel_direction_3 = 1;
     int wheel_direction_4 = 1;
     if(rotating == 1){
-        wheel_direction_1 = 1;
-        wheel_direction_2 = 1;
-        wheel_direction_3 = 1;
-        wheel_direction_4 = 1;
+        wheel_direction_1 = -1;
+        wheel_direction_2 = -1;
+        wheel_direction_3 = -1;
+        wheel_direction_4 = -1;
         wheel_speed_1 = rotating_speed * wheel_direction_1 ;
         wheel_speed_2 = rotating_speed * wheel_direction_2 ;
         wheel_speed_3 = rotating_speed * wheel_direction_3 ;
         wheel_speed_4 = rotating_speed * wheel_direction_4 ;
     }else if(rotating == -1){
-        wheel_direction_1 = -1;
-        wheel_direction_2 = -1;
-        wheel_direction_3 = -1;
-        wheel_direction_4 = -1;
+        wheel_direction_1 = 1;
+        wheel_direction_2 = 1;
+        wheel_direction_3 = 1;
+        wheel_direction_4 = 1;
         wheel_speed_1 = rotating_speed * wheel_direction_1 ;
         wheel_speed_2 = rotating_speed * wheel_direction_2 ;
         wheel_speed_3 = rotating_speed * wheel_direction_3 ;
@@ -618,10 +618,10 @@ void motor_control(){
         digitalWrite(WHEEL_IN1_4,LOW);
         digitalWrite(WHEEL_IN2_4,LOW);
         }
-    analogWrite(WHEEL_PWM_1,abs(int(wheel_pwm_1*0.6)));
-    analogWrite(WHEEL_PWM_2,abs(int(wheel_pwm_2*0.6)));
-    analogWrite(WHEEL_PWM_3,abs(int(wheel_pwm_3*0.6)));
-    analogWrite(WHEEL_PWM_4,abs(int(wheel_pwm_4*0.6)));
+    analogWrite(WHEEL_PWM_1,abs(int(wheel_pwm_1)));
+    analogWrite(WHEEL_PWM_2,abs(int(wheel_pwm_2)));
+    analogWrite(WHEEL_PWM_3,abs(int(wheel_pwm_3)));
+    analogWrite(WHEEL_PWM_4,abs(int(wheel_pwm_4)));
 }
 //*************云台指向*************//
 void mpu_initial(){
