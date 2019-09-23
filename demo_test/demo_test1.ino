@@ -283,7 +283,7 @@ void update_value_from_pad(){
             if (angle_alpha >= angle_alpha_max)
                 angle_alpha = angle_alpha_max;
             else
-                angle_alpha += angle_alpha_change_unit;
+                angle_alpha -= angle_alpha_change_unit;
             Serial.print("UP is pressed, ");
             Serial.print("angle_alpha is ");
             Serial.println(angle_alpha);
@@ -293,7 +293,7 @@ void update_value_from_pad(){
             if (angle_alpha <= angle_alpha_min)
                 angle_alpha = angle_alpha_min;
             else
-                angle_alpha -= angle_alpha_change_unit;
+                angle_alpha += angle_alpha_change_unit;
             Serial.print("DOWN is pressed, ");
             Serial.print("angle_alpha is ");
             Serial.println(angle_alpha);
@@ -367,7 +367,7 @@ void update_value_from_pad(){
             if (abs(ps2x.Analog(PSS_RY) -127) >= stick_sensitive_val){     
                 if (step_alpha >0 && angle_alpha >= angle_alpha_max) angle_alpha = angle_alpha_max;
                 else if (step_alpha <0 && angle_alpha <= angle_alpha_min) angle_alpha = angle_alpha_min;
-                else angle_alpha += step_alpha;                 //这里反向，因为pad stick往下数字更大
+                else angle_alpha -= step_alpha;                 //TODO:这里为了让摇杆和云台一致，还是取了负号
                 Serial.print("angle_alpha is: ");
                 Serial.println(angle_alpha);
             }
@@ -402,7 +402,7 @@ void update_value_from_pad(){
         }else{
             shoot_dadada = false;
         }
-    delay(50);      //FIXME:之后用多线程，这个就在线程delay中做掉
+    delay(50);      //之后用多线程，这个就在线程delay中做掉
 }
 //*************车轮控制*************//
 void speed_combine(){
