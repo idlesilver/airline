@@ -116,7 +116,7 @@
     const float     angle_alpha_change_unit = 1;    //云台仰角每次检测变化的角度，记得改
     const float     angle_alpha_offset = 90;        //就是中立位正负的角度
     const float     angle_alpha_max = 30;                 
-    const float     angle_alpha_min = -15;
+    const float     angle_alpha_min = -7;
 
   //射击部分
     bool            shoot_once = false;         //不要once了       
@@ -788,10 +788,10 @@ void stepper_shoot_dadada_run_no_stop(){
 void sb_shoot_dadada(){
     if(friction_wheel_on && shoot_dadada){
         analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
-        // digitalWrite(SB_SHOOT_IN1,sb_shoot_speed);
+        digitalWrite(SB_SHOOT_IN1,HIGH);
     }else{
         analogWrite(SB_PWM_SHOOT,0);
-        // digitalWrite(SB_SHOOT_IN1,0);
+        digitalWrite(SB_SHOOT_IN1,0);
     }
 }
 void friction_wheel_run(){
