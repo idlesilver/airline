@@ -114,16 +114,17 @@
     const int     sb_yaw_speed = 255;
 
     const float     angle_alpha_change_unit = 1;    //云台仰角每次检测变化的角度，记得改
-    const float     angle_alpha_offset = 90;        //就是中立位正负的角度
-    const float     angle_alpha_max = 30;                 
-    const float     angle_alpha_min = -7;
+    const float     angle_alpha_offset = 84;        //就是中立位正负的角度
+    const float     angle_alpha_max = 36;                 
+    const float     angle_alpha_min = -1;
 
   //射击部分
     bool            shoot_once = false;         //不要once了       
     bool            shoot_dadada = false;
+    bool            shoot_dadada_reverse = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
     const int       shoot_speed = 20;           //供弹步进电机转速
-    const int       sb_shoot_speed = 180;       //供弹智障电机转速
+    const int       sb_shoot_speed = 150;       //供弹智障电机转速
 
   //手柄部分
     int stick_sensitive_val = 20;               //摇杆在中位会有数值波动，用sensitive_val来防抖 
@@ -265,10 +266,8 @@ void update_value_from_pad(){
      *  start
      *  select
      *  PSB_L2(test_only now)
-     *  PSB_R2(test_only now)
      *  PSB_L3
      *  PSB_R3
-     *  Square
      *  Triangle(test_only)
      *  CROSS(test_only now)
      */
@@ -397,9 +396,16 @@ void update_value_from_pad(){
         }
         if (ps2x.Button(PSB_R1)){
             shoot_dadada = true;
+            shoot_dadada_reverse = false;
             // Serial.print("shoot_dadada: ");
             // Serial.println(shoot_dadada);
-        }else{
+        }else if (ps2x.Button(PSB_R2)){
+            shoot_dadada = false;
+            shoot_dadada_reverse = true;
+            // Serial.print("shoot_dadada: ");
+            // Serial.println(shoot_dadada);
+        else{
+            shoot_dadada_reverse = false;
             shoot_dadada = false;
         }
     delay(50);      //之后用多线程，这个就在线程delay中做掉
@@ -786,20 +792,26 @@ void stepper_shoot_dadada_run_no_stop(){
     }
 }
 void sb_shoot_dadada(){
-    if(friction_wheel_on && shoot_dadada){
+    if(friction_wheel_on && shoot_dadada && !shoot_dadada_reverse){
         analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
         digitalWrite(SB_SHOOT_IN1,HIGH);
+        digitalWrite(SB_SHOOT_IN2,0);
+    }else if(friction_wheel_on && !shoot_dadada && shoot_dadada_reverse){
+        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
+        digitalWrite(SB_SHOOT_IN1,0);
+        digitalWrite(SB_SHOOT_IN2,HIGH);
     }else{
         analogWrite(SB_PWM_SHOOT,0);
+        digitalWrite(SB_SHOOT_IN2,0);
         digitalWrite(SB_SHOOT_IN1,0);
     }
 }
 void friction_wheel_run(){
     if(friction_wheel_on){
-        digitalWrite(FRICTION_WHEEL,HIGH);
+        analogWrite(FRICTION_WHEEL,200);
         // Serial.println("friction_wheel: on");
     }else{
-        digitalWrite(FRICTION_WHEEL,LOW);
+        analogWrite(FRICTION_WHEEL,0);
         // Serial.println("friction_wheel: off");
     }
 }
