@@ -123,6 +123,7 @@
     bool            shoot_dadada = false;
     bool            shoot_dadada_reverse = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
+    const int       friction_wheel_speed = 255;
     const int       shoot_speed = 20;           //供弹步进电机转速
     const int       sb_shoot_speed = 150;       //供弹智障电机转速
 
@@ -404,7 +405,7 @@ void update_value_from_pad(){
             shoot_dadada_reverse = true;
             // Serial.print("shoot_dadada: ");
             // Serial.println(shoot_dadada);
-        else{
+        }else{
             shoot_dadada_reverse = false;
             shoot_dadada = false;
         }
@@ -808,7 +809,7 @@ void sb_shoot_dadada(){
 }
 void friction_wheel_run(){
     if(friction_wheel_on){
-        analogWrite(FRICTION_WHEEL,200);
+        analogWrite(FRICTION_WHEEL,friction_wheel_speed);
         // Serial.println("friction_wheel: on");
     }else{
         analogWrite(FRICTION_WHEEL,0);
