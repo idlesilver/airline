@@ -112,6 +112,7 @@
     const int     speedup_ratio = 2;                //yaw电机轴速度和云台真实轴速度的比值，不是加速比
     const float   angle_per_step = 5.625/8;
     const int     sb_yaw_speed = 255;
+    int           sb_yaw_pwm = 255;
 
     const float     angle_alpha_change_unit = 1;    //云台仰角每次检测变化的角度，记得改
     const float     angle_alpha_offset = 84;        //就是中立位正负的角度
@@ -123,6 +124,7 @@
     bool            shoot_dadada = false;
     bool            shoot_dadada_reverse = false;
     bool            friction_wheel_on = false;  //摩擦轮转动标志
+    int             sb_shoot_pwm = 255;       //供弹智障电机转速
     const int       friction_wheel_speed = 255;
     const int       shoot_speed = 20;           //供弹步进电机转速
     const int       sb_shoot_speed = 150;       //供弹智障电机转速
@@ -447,70 +449,99 @@ void speed_combine(){
         wheel_speed_3 = rotating_speed * wheel_direction_3 ;
         wheel_speed_4 = rotating_speed * wheel_direction_4 ;
     }else{
+      // switch (front){
+        //     case 0:
+        //         wheel_direction_1 =  1;
+        //         wheel_direction_2 = -1;
+        //         wheel_direction_3 = -1;
+        //         wheel_direction_4 =  1;
+        //         break;
+        //     case 1:
+        //         wheel_direction_1 =  1;
+        //         wheel_direction_2 =  1;
+        //         wheel_direction_3 = -1;
+        //         wheel_direction_4 = -1;
+        //         break;
+        //     case 2:
+        //         wheel_direction_1 = -1;
+        //         wheel_direction_2 =  1;
+        //         wheel_direction_3 =  1;
+        //         wheel_direction_4 = -1;
+        //         break;
+        //     case 3:
+        //         wheel_direction_1 = -1;
+        //         wheel_direction_2 = -1;
+        //         wheel_direction_3 =  1;
+        //         wheel_direction_4 =  1;
+        //         break;
+        //     default:
+        //         break;
+        // }
+        // wheel_speed_1 = speed_x * wheel_direction_1 ;
+        // wheel_speed_2 = speed_x * wheel_direction_2 ;
+        // wheel_speed_3 = speed_x * wheel_direction_3 ;
+        // wheel_speed_4 = speed_x * wheel_direction_4 ;
+        // switch (front){
+        //     case 0:
+        //         wheel_direction_1 = -1;// 1;
+        //         wheel_direction_2 = -1;//-1;
+        //         wheel_direction_3 =  1;//-1;
+        //         wheel_direction_4 =  1;// 1;
+        //         break;
+        //     case 1:
+        //         wheel_direction_1 =  1;// 1;
+        //         wheel_direction_2 = -1;// 1;
+        //         wheel_direction_3 = -1;//-1;
+        //         wheel_direction_4 =  1;//-1;
+        //         break;
+        //     case 2:
+        //         wheel_direction_1 =  1;//-1;
+        //         wheel_direction_2 =  1;// 1;
+        //         wheel_direction_3 = -1;// 1;
+        //         wheel_direction_4 = -1;//-1;
+        //         break;
+        //     case 3:
+        //         wheel_direction_1 = -1;//-1;
+        //         wheel_direction_2 =  1;//-1;
+        //         wheel_direction_3 =  1;// 1;
+        //         wheel_direction_4 = -1;// 1;
+        //         break;
+        //     default:
+        //         break;
+        // }
+        // wheel_speed_1 += speed_y * wheel_direction_1 ;
+        // wheel_speed_2 += speed_y * wheel_direction_2 ;
+        // wheel_speed_3 += speed_y * wheel_direction_3 ;
+        // wheel_speed_4 += speed_y * wheel_direction_4 ;
+      
         switch (front){
             case 0:
-                wheel_direction_1 =  1;
-                wheel_direction_2 = -1;
-                wheel_direction_3 = -1;
-                wheel_direction_4 =  1;
+                wheel_speed_1 = -speed_x ;
+                wheel_speed_2 = speed_y ;
+                wheel_speed_3 = speed_x ;
+                wheel_speed_4 = -speed_y ;
                 break;
             case 1:
-                wheel_direction_1 =  1;
-                wheel_direction_2 =  1;
-                wheel_direction_3 = -1;
-                wheel_direction_4 = -1;
+                wheel_speed_1 = speed_y ;
+                wheel_speed_2 = -speed_x ;
+                wheel_speed_3 = -speed_y ;
+                wheel_speed_4 = speed_x ;
                 break;
             case 2:
-                wheel_direction_1 = -1;
-                wheel_direction_2 =  1;
-                wheel_direction_3 =  1;
-                wheel_direction_4 = -1;
+                wheel_speed_1 = speed_x ;
+                wheel_speed_2 = -speed_y ;
+                wheel_speed_3 = -speed_x ;
+                wheel_speed_4 = speed_y ;
                 break;
             case 3:
-                wheel_direction_1 = -1;
-                wheel_direction_2 = -1;
-                wheel_direction_3 =  1;
-                wheel_direction_4 =  1;
+                wheel_speed_1 = -speed_y ;
+                wheel_speed_2 = speed_x ;
+                wheel_speed_3 = speed_y ;
+                wheel_speed_4 = -speed_x ;
                 break;
             default:
                 break;
         }
-        wheel_speed_1 = speed_x * wheel_direction_1 ;
-        wheel_speed_2 = speed_x * wheel_direction_2 ;
-        wheel_speed_3 = speed_x * wheel_direction_3 ;
-        wheel_speed_4 = speed_x * wheel_direction_4 ;
-        switch (front){
-            case 0:
-                wheel_direction_1 = -1;// 1;
-                wheel_direction_2 = -1;//-1;
-                wheel_direction_3 =  1;//-1;
-                wheel_direction_4 =  1;// 1;
-                break;
-            case 1:
-                wheel_direction_1 =  1;// 1;
-                wheel_direction_2 = -1;// 1;
-                wheel_direction_3 = -1;//-1;
-                wheel_direction_4 =  1;//-1;
-                break;
-            case 2:
-                wheel_direction_1 =  1;//-1;
-                wheel_direction_2 =  1;// 1;
-                wheel_direction_3 = -1;// 1;
-                wheel_direction_4 = -1;//-1;
-                break;
-            case 3:
-                wheel_direction_1 = -1;//-1;
-                wheel_direction_2 =  1;//-1;
-                wheel_direction_3 =  1;// 1;
-                wheel_direction_4 = -1;// 1;
-                break;
-            default:
-                break;
-        }
-        wheel_speed_1 += speed_y * wheel_direction_1 ;
-        wheel_speed_2 += speed_y * wheel_direction_2 ;
-        wheel_speed_3 += speed_y * wheel_direction_3 ;
-        wheel_speed_4 += speed_y * wheel_direction_4 ;
 
         if (abs(wheel_speed_1) >255){
             if(wheel_speed_1>0){wheel_speed_1 = 255;}
@@ -626,8 +657,8 @@ void motor_control(){
         digitalWrite(WHEEL_IN2_4,LOW);
         }
     analogWrite(WHEEL_PWM_1,abs(int(wheel_pwm_1)));
-    analogWrite(WHEEL_PWM_2,abs(int(wheel_pwm_2)));
     analogWrite(WHEEL_PWM_3,abs(int(wheel_pwm_3)));
+    analogWrite(WHEEL_PWM_2,abs(int(wheel_pwm_2)));
     analogWrite(WHEEL_PWM_4,abs(int(wheel_pwm_4)));
 }
 //*************云台指向*************//
@@ -744,7 +775,8 @@ void sb_yaw_openloop(){//好像不行，可能是因为current更新太快，没
 }
 void sb_yaw_openloop_without_angle(){
     int signal = 0;
-    analogWrite(SB_PWM_YAW,sb_yaw_speed-sweep_speed_level*60);//FIXME:调整最后的数字来调整yaw轴档位
+    if(sb_yaw_pwm!=sb_yaw_speed-sweep_speed_level*70){sb_yaw_pwm-=1;}
+    analogWrite(SB_PWM_YAW,sb_yaw_pwm);//FIXME:调整最后的数字来调整yaw轴档位
     if(sb_turn_clockwise && !sb_turn_counterclockwise){
         digitalWrite(SB_YAW_IN1,HIGH);
         digitalWrite(SB_YAW_IN2,LOW);
@@ -754,6 +786,7 @@ void sb_yaw_openloop_without_angle(){
     }else{
         digitalWrite(SB_YAW_IN1,LOW);
         digitalWrite(SB_YAW_IN2,LOW);
+        sb_yaw_pwm=255;
     }
 }
 //*************射弹控制*************//
@@ -793,18 +826,20 @@ void stepper_shoot_dadada_run_no_stop(){
     }
 }
 void sb_shoot_dadada(){
+    if(sb_shoot_pwm!=sb_shoot_speed){sb_shoot_pwm-=1;}
     if(friction_wheel_on && shoot_dadada && !shoot_dadada_reverse){
-        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
+        analogWrite(SB_PWM_SHOOT,sb_shoot_pwm);
         digitalWrite(SB_SHOOT_IN1,HIGH);
         digitalWrite(SB_SHOOT_IN2,0);
     }else if(friction_wheel_on && !shoot_dadada && shoot_dadada_reverse){
-        analogWrite(SB_PWM_SHOOT,sb_shoot_speed);
+        analogWrite(SB_PWM_SHOOT,sb_shoot_pwm);
         digitalWrite(SB_SHOOT_IN1,0);
         digitalWrite(SB_SHOOT_IN2,HIGH);
     }else{
         analogWrite(SB_PWM_SHOOT,0);
         digitalWrite(SB_SHOOT_IN2,0);
         digitalWrite(SB_SHOOT_IN1,0);
+        sb_shoot_pwm = 255;
     }
 }
 void friction_wheel_run(){
